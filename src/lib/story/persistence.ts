@@ -8,7 +8,9 @@ import {
   createMockPayment,
   deleteStory,
   getPreviewStory,
+  listStoryEvents,
   listStories,
+  recordStoryEvent,
   savePreviewStory,
   selectStoryChoice
 } from "./store";
@@ -16,12 +18,14 @@ import {
   completePaymentInSupabase,
   createPaymentInSupabase,
   deleteStoryFromSupabase,
+  listAnalyticsEventsFromSupabase,
   getStoryFromSupabase,
   listStoriesFromSupabase,
+  recordAnalyticsEventToSupabase,
   savePreviewStoryToSupabase,
   selectStoryChoiceInSupabase
 } from "./supabase-store";
-import type { PreviewStory, StoryInput } from "./schema";
+import type { AnalyticsEventName, PreviewStory, StoryInput } from "./schema";
 
 function shouldUseSupabase() {
   return !getRuntimeConfig().mockSupabase;
@@ -130,6 +134,26 @@ export async function completeMockPaidStory(storyId: string) {
 
 export async function removeStory(storyId: string) {
   return shouldUseSupabase() ? deleteStoryFromSupabase(storyId) : deleteStory(storyId);
+}
+
+export async function recordAnalyticsEvent({
+  eventName,
+  storyId = null,
+  metadata = {}
+}: {
+  eventName: AnalyticsEventName;
+  storyId?: string | null;
+  metadata?: Record<string, unknown>;
+}) {
+  return shouldUseSupabase()
+    ? recordAnalyticsEventToSupabase({ eventName, storyId, metadata })
+    : recordStoryEvent({ eventName, storyId, metadata });
+}
+
+export async function getAnalyticsEvents(storyId?: string) {
+  return shouldUseSupabase()
+    ? listAnalyticsEventsFromSupabase(storyId)
+    : listStoryEvents(storyId);
 }
 
 export function validateGeneratedPreview(story: PreviewStory) {

@@ -44,7 +44,7 @@ export default async function StoryPage({ params }: StoryPageProps) {
         {!isCompleted ? (
           <section className="notice">
             아직 완결 회차가 생성되지 않았습니다. 1화 미리보기에서 다음 전개를
-            선택하고 5화 완결팩을 진행해주세요.
+            선택하고 5화 완결을 진행해 주세요.
           </section>
         ) : null}
 

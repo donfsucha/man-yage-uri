@@ -66,6 +66,13 @@ export const PaymentStatusSchema = z.enum([
   "refunded"
 ]);
 
+export const AnalyticsEventNameSchema = z.enum([
+  "landing_view",
+  "story_start",
+  "preview_generated",
+  "checkout_click"
+]);
+
 export const PreviewStorySchema = z
   .object({
     title: z.string().min(2).max(80),
@@ -89,6 +96,7 @@ export type ChoiceId = z.infer<typeof ChoiceIdSchema>;
 export type SafetyFlags = z.infer<typeof SafetyFlagsSchema>;
 export type StoryStatus = z.infer<typeof StoryStatusSchema>;
 export type PaymentStatus = z.infer<typeof PaymentStatusSchema>;
+export type AnalyticsEventName = z.infer<typeof AnalyticsEventNameSchema>;
 
 export type MockPayment = {
   productType: "five_episode_complete";
@@ -108,4 +116,12 @@ export type StoredPreviewStory = {
   payment: MockPayment | null;
   createdAt: string;
   updatedAt: string;
+};
+
+export type StoryEvent = {
+  id: string;
+  eventName: AnalyticsEventName;
+  storyId: string | null;
+  metadata: Record<string, unknown>;
+  createdAt: string;
 };

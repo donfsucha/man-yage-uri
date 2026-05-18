@@ -48,11 +48,24 @@ export default async function PreviewPage({ params }: PreviewPageProps) {
           </p>
         </section>
 
+        <section className="panel grid gap-3 p-5">
+          <p className="text-sm font-bold text-[color:var(--accent)]">
+            이 이야기는 아직 끝나지 않았습니다
+          </p>
+          <h2 className="text-2xl font-black leading-tight">
+            선택한 방향으로 2화부터 5화까지 완결됩니다.
+          </h2>
+          <p className="leading-7 text-[color:var(--muted)]">
+            우리의 다른 결말을 끝까지 읽어보고 싶다면, 아래에서 다음 전개를
+            선택해 주세요.
+          </p>
+        </section>
+
         <ChoiceActions choices={stored.story.next_choices} storyId={stored.id} />
 
         <section className="notice">
-          다음 화면에서 5화 완결팩 결제를 준비합니다. 실제 토스페이먼츠 결제 승인과
-          유료 회차 생성은 토스 키가 준비되면 연결됩니다.
+          다음 화면에서 5화 완결 상품을 확인합니다. 공개 베타에서는 결제 의향을
+          검증하기 위해 결제 버튼 클릭 이벤트를 기록합니다.
         </section>
       </article>
     </main>

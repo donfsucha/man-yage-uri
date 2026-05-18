@@ -22,7 +22,7 @@ export async function POST(request: Request) {
   if (!parsedInput.success) {
     return NextResponse.json(
       {
-        error: "입력값을 확인해주세요.",
+        error: "입력값을 확인해 주세요.",
         issues: parsedInput.error.flatten().fieldErrors
       },
       { status: 400 }

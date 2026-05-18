@@ -1,10 +1,12 @@
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import type {
+  AnalyticsEventName,
   ChoiceId,
   MockPayment,
   NextChoice,
   PreviewStory,
   StoryChapter,
+  StoryEvent,
   StoredPreviewStory,
   StoryInput,
   StoryStatus
@@ -57,6 +59,14 @@ type PaymentRow = {
   updated_at: string;
 };
 
+type AnalyticsEventRow = {
+  id: string;
+  event_name: AnalyticsEventName;
+  story_id: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+};
+
 function toStoryInput(row: StoryInputRow): StoryInput {
   return {
     breakupMoment: row.breakup_moment,
@@ -99,6 +109,16 @@ function toPayment(row: PaymentRow | null): MockPayment | null {
     status: row.status,
     createdAt: row.created_at,
     updatedAt: row.updated_at
+  };
+}
+
+function toStoryEvent(row: AnalyticsEventRow): StoryEvent {
+  return {
+    id: row.id,
+    eventName: row.event_name,
+    storyId: row.story_id,
+    metadata: row.metadata ?? {},
+    createdAt: row.created_at
   };
 }
 
@@ -433,4 +453,51 @@ export async function deleteStoryFromSupabase(storyId: string) {
   }
 
   return true;
+}
+
+export async function recordAnalyticsEventToSupabase({
+  eventName,
+  storyId = null,
+  metadata = {}
+}: {
+  eventName: AnalyticsEventName;
+  storyId?: string | null;
+  metadata?: Record<string, unknown>;
+}) {
+  const supabase = createSupabaseServiceClient();
+  const result = await supabase
+    .from("analytics_events")
+    .insert({
+      event_name: eventName,
+      story_id: storyId,
+      metadata
+    })
+    .select("id,event_name,story_id,metadata,created_at")
+    .single();
+
+  if (result.error) {
+    throw new Error(result.error.message);
+  }
+
+  return toStoryEvent(result.data as AnalyticsEventRow);
+}
+
+export async function listAnalyticsEventsFromSupabase(storyId?: string) {
+  const supabase = createSupabaseServiceClient();
+  let query = supabase
+    .from("analytics_events")
+    .select("id,event_name,story_id,metadata,created_at")
+    .order("created_at", { ascending: false });
+
+  if (storyId) {
+    query = query.eq("story_id", storyId);
+  }
+
+  const result = await query;
+
+  if (result.error) {
+    throw new Error(result.error.message);
+  }
+
+  return (result.data as AnalyticsEventRow[]).map(toStoryEvent);
 }

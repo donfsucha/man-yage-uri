@@ -32,6 +32,10 @@ npm.cmd start
 
 Add these in **Project Settings > Environment Variables**.
 
+Before setting `MOCK_SUPABASE=false`, apply the Supabase migrations in
+`supabase/migrations`, including the `analytics_events` table used for checkout
+click validation.
+
 ### Required for a real public demo
 
 ```env

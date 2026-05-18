@@ -1,7 +1,6 @@
-# 만약에 우리
+# 만약의 우리
 
-AI fiction web novel MVP for turning a breakup moment into a safe, personalized
-five-episode fictional story.
+이별 순간을 안전한 개인화 5화 픽션 스토리로 바꾸는 AI 웹소설 MVP입니다.
 
 ## Local development
 
@@ -35,6 +34,23 @@ MOCK_OPENAI=false
 MOCK_TOSS=true
 MOCK_PAYPAL=true
 ```
+
+## Conversion validation
+
+The current MVP is set up to test whether readers want to continue after the
+free first chapter.
+
+Tracked events:
+
+```text
+landing_view
+story_start
+preview_generated
+checkout_click
+```
+
+The admin page at `/admin` shows story counts, completion counts, pending
+payments, and checkout click counts.
 
 ## Scripts
 

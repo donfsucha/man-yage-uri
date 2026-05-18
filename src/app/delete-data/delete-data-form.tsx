@@ -30,7 +30,7 @@ export function DeleteDataForm() {
       setStoryId("");
       setMessage("스토리 데이터가 삭제되었습니다.");
     } catch {
-      setMessage("네트워크 상태를 확인한 뒤 다시 시도해주세요.");
+      setMessage("네트워크 상태를 확인하고 다시 시도해 주세요.");
     } finally {
       setIsSubmitting(false);
     }

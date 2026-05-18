@@ -55,14 +55,16 @@ export function ChoiceActions({ storyId, choices }: ChoiceActionsProps) {
         return;
       }
 
-      setError("네트워크 상태를 확인한 뒤 다시 시도해주세요.");
+      setError("네트워크 상태를 확인하고 다시 시도해 주세요.");
       setSelectedChoiceId(null);
     }
   }
 
   return (
     <section className="grid gap-3">
-      <h2 className="text-xl font-black">다음 전개를 선택하세요</h2>
+      <h2 className="text-xl font-black">
+        우리의 다른 결말 보기 — 7,900원
+      </h2>
       {choices.map((choice) => (
         <button
           className="button-secondary w-full justify-start"

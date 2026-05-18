@@ -22,7 +22,7 @@ export async function POST(request: Request) {
 
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "결제 정보를 확인해주세요." },
+      { error: "결제 정보를 확인해 주세요." },
       { status: 400 }
     );
   }

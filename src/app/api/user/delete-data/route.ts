@@ -22,7 +22,7 @@ export async function DELETE(request: Request) {
 
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "삭제할 스토리 정보를 확인해주세요." },
+      { error: "삭제할 스토리 정보를 확인해 주세요." },
       { status: 400 }
     );
   }

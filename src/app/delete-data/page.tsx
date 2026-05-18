@@ -11,8 +11,9 @@ export default function DeleteDataPage() {
           </Link>
           <h1 className="text-3xl font-black leading-tight">데이터 삭제 요청</h1>
           <p className="leading-7 text-[color:var(--muted)]">
-            V1 데모에서는 스토리 ID 기준으로 로컬 저장 데이터를 삭제합니다. 실제
-            운영에서는 로그인 계정, 이메일 확인, 처리 이력을 함께 남깁니다.
+            V1 데모에서는 스토리 ID 기준으로 저장된 데이터를 삭제합니다. 실제 운영
+            단계에서는 로그인 계정, 이메일 확인, 처리 이력을 함께 남기는 흐름으로
+            확장합니다.
           </p>
         </header>
         <DeleteDataForm />

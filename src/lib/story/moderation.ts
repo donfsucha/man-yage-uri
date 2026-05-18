@@ -19,7 +19,7 @@ const checks: Array<{
 }> = [
   {
     category: "self_harm",
-    pattern: /(자살|죽고\s*싶|극단적\s*선택|사라지고\s*싶)/i
+    pattern: /(자해|죽고\s*싶|극단적\s*선택|사라지고\s*싶|목숨)/i
   },
   {
     category: "stalking",
@@ -78,7 +78,7 @@ export function moderateStoryInput(input: StoryInput): ModerationResult {
     allowed: false,
     categories: uniqueCategories,
     message:
-      "이 입력은 안전한 픽션 콘텐츠로 생성하기 어렵습니다. 자해, 감시, 협박, 개인정보가 포함되지 않도록 내용을 바꿔주세요.",
+      "입력하신 내용은 안전한 픽션으로 생성하기 어렵습니다. 자해, 협박, 감시, 개인정보가 포함되지 않도록 내용을 바꿔주세요. 힘든 감정이 계속된다면 가까운 사람이나 전문 상담 기관에 도움을 요청해 주세요.",
     sanitizedInput
   };
 }

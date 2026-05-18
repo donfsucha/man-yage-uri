@@ -2,8 +2,9 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "만약에 우리",
-  description: "헤어진 순간에서 다른 선택을 했다면 펼쳐졌을 이야기를 AI 웹소설로 만들어보세요."
+  title: "만약의 우리",
+  description:
+    "보내지 못한 마음을 안전한 개인화 5화 픽션 스토리로 정리해보세요."
 };
 
 export const viewport: Viewport = {

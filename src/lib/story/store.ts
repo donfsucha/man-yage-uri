@@ -1,6 +1,8 @@
 import type {
+  AnalyticsEventName,
   ChoiceId,
   PreviewStory,
+  StoryEvent,
   StoryChapter,
   StoredPreviewStory,
   StoryInput
@@ -9,6 +11,7 @@ import { generateMockPaidChapters } from "./mock-generator";
 
 const globalStore = globalThis as typeof globalThis & {
   __manYageUriStories?: Map<string, StoredPreviewStory>;
+  __manYageUriStoryEvents?: StoryEvent[];
 };
 
 function getStore() {
@@ -17,6 +20,14 @@ function getStore() {
   }
 
   return globalStore.__manYageUriStories;
+}
+
+function getEventStore() {
+  if (!globalStore.__manYageUriStoryEvents) {
+    globalStore.__manYageUriStoryEvents = [];
+  }
+
+  return globalStore.__manYageUriStoryEvents;
 }
 
 export function savePreviewStory(input: StoryInput, story: PreviewStory) {
@@ -172,4 +183,31 @@ export function completeMockPayment(storyId: string) {
 
 export function deleteStory(storyId: string) {
   return getStore().delete(storyId);
+}
+
+export function recordStoryEvent({
+  eventName,
+  storyId = null,
+  metadata = {}
+}: {
+  eventName: AnalyticsEventName;
+  storyId?: string | null;
+  metadata?: Record<string, unknown>;
+}) {
+  const event: StoryEvent = {
+    id: crypto.randomUUID(),
+    eventName,
+    storyId,
+    metadata,
+    createdAt: new Date().toISOString()
+  };
+
+  getEventStore().push(event);
+  return event;
+}
+
+export function listStoryEvents(storyId?: string) {
+  return getEventStore()
+    .filter((event) => (storyId ? event.storyId === storyId : true))
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }

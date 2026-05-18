@@ -14,9 +14,13 @@ describe("PaymentActions", () => {
     vi.unstubAllGlobals();
   });
 
-  test("creates and captures a mock PayPal order before opening the completed story", async () => {
+  test("records checkout click, then creates and captures a mock PayPal order", async () => {
     const fetch = vi
       .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ eventId: "event-1" })
+      })
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({ orderId: "mock_paypal_story-1" })
@@ -36,16 +40,21 @@ describe("PaymentActions", () => {
       />
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "PayPal 모의 결제" }));
+    fireEvent.click(screen.getByRole("button", { name: "PayPal 모의 결제로 확인" }));
 
     await waitFor(() => expect(push).toHaveBeenCalledWith("/stories/story-1"));
     expect(fetch).toHaveBeenNthCalledWith(
       1,
-      "/api/payment/paypal/create-order",
+      "/api/events/track",
       expect.objectContaining({ method: "POST" })
     );
     expect(fetch).toHaveBeenNthCalledWith(
       2,
+      "/api/payment/paypal/create-order",
+      expect.objectContaining({ method: "POST" })
+    );
+    expect(fetch).toHaveBeenNthCalledWith(
+      3,
       "/api/payment/paypal/capture-order",
       expect.objectContaining({ method: "POST" })
     );

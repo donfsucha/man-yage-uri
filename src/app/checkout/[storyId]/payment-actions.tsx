@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { trackEvent } from "@/components/event-tracker";
 
 type PaymentActionsProps = {
   storyId: string;
@@ -54,7 +55,16 @@ export function PaymentActions({
   const [error, setError] = useState("");
   const shouldRenderPayPalSdk = !mockPayPal && Boolean(paypalClientId);
 
+  const recordCheckoutClick = useCallback((source: "mock_complete" | "paypal") => {
+    void trackEvent({
+      eventName: "checkout_click",
+      storyId,
+      metadata: { source }
+    });
+  }, [storyId]);
+
   async function completeWithMock() {
+    recordCheckoutClick("mock_complete");
     setIsSubmitting(true);
     setError("");
 
@@ -69,19 +79,20 @@ export function PaymentActions({
       const result = await readJson(response);
 
       if (!response.ok) {
-        setError(result.error ?? "결제 승인 처리에 실패했습니다.");
+        setError(result.error ?? "결제 확인 처리에 실패했습니다.");
         return;
       }
 
       router.push(`/stories/${storyId}`);
     } catch {
-      setError("네트워크 상태를 확인한 뒤 다시 시도해주세요.");
+      setError("네트워크 상태를 확인하고 다시 시도해 주세요.");
     } finally {
       setIsSubmitting(false);
     }
   }
 
   const createPayPalOrder = useCallback(async () => {
+    recordCheckoutClick("paypal");
     const response = await fetch("/api/payment/paypal/create-order", {
       method: "POST",
       headers: {
@@ -96,7 +107,7 @@ export function PaymentActions({
     }
 
     return result.orderId;
-  }, [storyId]);
+  }, [recordCheckoutClick, storyId]);
 
   const capturePayPalOrder = useCallback(
     async (orderId: string) => {
@@ -110,7 +121,7 @@ export function PaymentActions({
       const result = await readJson(response);
 
       if (!response.ok) {
-        throw new Error(result.error ?? "PayPal 결제 승인에 실패했습니다.");
+        throw new Error(result.error ?? "PayPal 결제 확인에 실패했습니다.");
       }
 
       router.push(`/stories/${storyId}`);
@@ -129,7 +140,7 @@ export function PaymentActions({
       setError(
         error instanceof Error
           ? error.message
-          : "PayPal 결제를 다시 시도해주세요."
+          : "PayPal 결제를 다시 시도해 주세요."
       );
     } finally {
       setIsSubmitting(false);
@@ -163,14 +174,14 @@ export function PaymentActions({
             setError(
               error instanceof Error
                 ? error.message
-                : "PayPal 결제 승인에 실패했습니다."
+                : "PayPal 결제 확인에 실패했습니다."
             );
           } finally {
             setIsSubmitting(false);
           }
         },
         onError: () => {
-          setError("PayPal 결제를 다시 시도해주세요.");
+          setError("PayPal 결제를 다시 시도해 주세요.");
         }
       });
       void buttons.render(paypalContainerRef.current);
@@ -212,7 +223,7 @@ export function PaymentActions({
         onClick={completeWithMock}
         type="button"
       >
-        {isSubmitting ? "5화 완결 생성 중" : "모의 결제 승인하고 5화 생성하기"}
+        {isSubmitting ? "5화 완결 생성 중" : "5화 완결 보기 — 7,900원"}
       </button>
 
       {mockPayPal || !paypalClientId ? (
@@ -222,7 +233,7 @@ export function PaymentActions({
           onClick={completeWithMockPayPal}
           type="button"
         >
-          PayPal 모의 결제
+          PayPal 모의 결제로 확인
         </button>
       ) : (
         <div ref={paypalContainerRef} />

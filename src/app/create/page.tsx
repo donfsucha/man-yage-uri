@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
+import { trackEvent } from "@/components/event-tracker";
 
 type FormState = {
   breakupMoment: string;
@@ -41,6 +42,7 @@ export default function CreatePage() {
     event.preventDefault();
     setError("");
     setIsSubmitting(true);
+    void trackEvent({ eventName: "story_start", metadata: { page: "create" } });
 
     try {
       const response = await fetch("/api/story/generate-preview", {
@@ -57,9 +59,14 @@ export default function CreatePage() {
         return;
       }
 
+      void trackEvent({
+        eventName: "preview_generated",
+        storyId: result.storyId,
+        metadata: { desiredEnding: form.desiredEnding, emotion: form.emotion }
+      });
       router.push(`/stories/${result.storyId}/preview`);
     } catch {
-      setError("네트워크 상태를 확인한 뒤 다시 시도해주세요.");
+      setError("네트워크 상태를 확인하고 다시 시도해 주세요.");
     } finally {
       setIsSubmitting(false);
     }
@@ -69,10 +76,14 @@ export default function CreatePage() {
     <main className="page-shell">
       <section className="mobile-frame grid gap-6">
         <header className="grid gap-2 pt-3">
-          <p className="text-sm font-bold text-[color:var(--accent)]">무료 1화 제작</p>
-          <h1 className="text-3xl font-black leading-tight">그때의 장면을 다시 써볼게요.</h1>
+          <p className="text-sm font-bold text-[color:var(--accent)]">
+            무료 1화로 시작
+          </p>
+          <h1 className="text-3xl font-black leading-tight">
+            그날 하지 못한 말을 안전한 픽션으로 바꿔볼게요.
+          </h1>
           <p className="leading-7 text-[color:var(--muted)]">
-            실명 대신 별명이나 이니셜을 사용해주세요. 연락처, 주소, 직장명 같은
+            실명 대신 별명이나 이니셜을 사용해 주세요. 전화번호, 주소, 직장명 같은
             개인정보는 입력하지 않는 것이 안전합니다.
           </p>
         </header>
@@ -87,8 +98,8 @@ export default function CreatePage() {
             >
               <option>마지막 통화</option>
               <option>마지막 만남</option>
-              <option>싸운 날</option>
               <option>읽씹으로 끝난 밤</option>
+              <option>문자로 끝난 밤</option>
               <option>서로 아무 말도 못 한 순간</option>
             </select>
           </div>
@@ -109,11 +120,13 @@ export default function CreatePage() {
           </div>
 
           <div className="field">
-            <label htmlFor="alternativeChoice">그때 다르게 하고 싶은 말이나 행동</label>
+            <label htmlFor="alternativeChoice">
+              그때 다르게 하고 싶었던 말이나 행동
+            </label>
             <textarea
               id="alternativeChoice"
               maxLength={600}
-              placeholder="예: 침묵하지 않고 미안하다는 말을 먼저 꺼내고 싶었다."
+              placeholder="예: 화내지 않고 미안하다는 말을 먼저 꺼내고 싶었어."
               value={form.alternativeChoice}
               onChange={(event) => update("alternativeChoice", event.target.value)}
               required
@@ -143,8 +156,8 @@ export default function CreatePage() {
                 value={form.desiredEnding}
                 onChange={(event) => update("desiredEnding", event.target.value)}
               >
-                <option value="reunion">재회</option>
-                <option value="growth">성장</option>
+                <option value="reunion">재회의 가능성</option>
+                <option value="growth">각자의 성장</option>
                 <option value="farewell">완전한 이별</option>
                 <option value="parallel_world">평행세계</option>
               </select>
@@ -187,7 +200,7 @@ export default function CreatePage() {
               }
               required
             />
-            생성되는 내용은 실제 상대방의 마음이나 미래를 예측하지 않는 픽션임을
+            생성되는 내용은 실제 상대의 마음이나 미래를 예측하지 않는 픽션임을
             이해했습니다.
           </label>
 
@@ -211,7 +224,7 @@ export default function CreatePage() {
           ) : null}
 
           <button className="button-primary w-full" disabled={isSubmitting} type="submit">
-            {isSubmitting ? "1화를 만드는 중" : "1화 무료 생성하기"}
+            {isSubmitting ? "1화 만드는 중" : "1화 무료 생성하기"}
           </button>
         </form>
       </section>

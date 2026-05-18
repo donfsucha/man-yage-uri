@@ -6,6 +6,8 @@ import {
   deleteStory,
   getPreviewStory,
   listStories,
+  listStoryEvents,
+  recordStoryEvent,
   savePreviewStory,
   selectStoryChoice
 } from "./store";
@@ -14,7 +16,7 @@ import type { StoryInput } from "./schema";
 const input: StoryInput = {
   breakupMoment: "마지막 통화",
   breakupReason: "서로의 오해",
-  alternativeChoice: "그때 침묵하지 않고 미안하다는 말을 먼저 꺼내고 싶었다.",
+  alternativeChoice: "그때 화내지 않고 미안하다는 말을 먼저 꺼내고 싶었어.",
   emotion: "regret",
   desiredEnding: "growth",
   protagonistAlias: "하린",
@@ -101,5 +103,19 @@ describe("story store", () => {
     expect(listStories().some((story) => story.id === stored.id)).toBe(true);
     expect(deleteStory(stored.id)).toBe(true);
     expect(getPreviewStory(stored.id)).toBeNull();
+  });
+
+  it("records checkout click events for conversion validation", () => {
+    const stored = savePreviewStory(input, generateMockPreview(input));
+    const event = recordStoryEvent({
+      eventName: "checkout_click",
+      storyId: stored.id,
+      metadata: { source: "checkout_page" }
+    });
+
+    expect(event.eventName).toBe("checkout_click");
+    expect(event.storyId).toBe(stored.id);
+    expect(event.metadata).toEqual({ source: "checkout_page" });
+    expect(listStoryEvents(stored.id)).toContainEqual(event);
   });
 });
