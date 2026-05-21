@@ -119,6 +119,29 @@ function parseJsonObject(content: string) {
   }
 }
 
+function warningFromGenerationError(error: unknown) {
+  if (
+    error &&
+    typeof error === "object" &&
+    "status" in error &&
+    error.status === 429
+  ) {
+    return "OpenAI API 한도 또는 결제 설정 문제로 안전한 샘플 문안으로 대체했습니다.";
+  }
+
+  if (
+    error &&
+    typeof error === "object" &&
+    "message" in error &&
+    typeof error.message === "string" &&
+    error.message.toLowerCase().includes("connection")
+  ) {
+    return "OpenAI API 네트워크 연결 문제로 안전한 샘플 문안으로 대체했습니다.";
+  }
+
+  return "AI 생성 결과를 검증하지 못해 안전한 샘플 문안으로 대체했습니다.";
+}
+
 export async function generateShortsPackage(
   input: ShortsMakerInput,
   env: Record<string, string | undefined> = process.env
@@ -150,13 +173,12 @@ export async function generateShortsPackage(
 
     assertNoUnsafeLaunchClaims(parsed, input);
     return { package: parsed };
-  } catch {
+  } catch (error) {
     const pkg = generateMockShortsPackage(input);
     assertNoUnsafeLaunchClaims(pkg, input);
     return {
       package: pkg,
-      warning:
-        "AI 생성 결과를 검증하지 못해 안전한 샘플 문안으로 대체했습니다."
+      warning: warningFromGenerationError(error)
     };
   }
 }
