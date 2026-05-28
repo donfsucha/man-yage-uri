@@ -9,6 +9,7 @@ Run these checks before deploying:
 
 ```powershell
 npm.cmd test
+npm.cmd run check:prod-api
 npm.cmd run build
 ```
 
@@ -34,7 +35,9 @@ Add these in **Project Settings > Environment Variables**.
 
 Before setting `MOCK_SUPABASE=false`, apply the Supabase migrations in
 `supabase/migrations`, including the `analytics_events` table used for checkout
-click validation.
+click validation. The current scene-based story migration is
+`supabase/migrations/202605180002_story_scenes.sql`; it creates
+`story_scenes` and adds `story_choices.chapter_no`.
 
 ### Required for a real public demo
 
@@ -62,6 +65,12 @@ MOCK_TOSS=true
 MOCK_PAYPAL=true
 ```
 
+In this mode, run:
+
+```powershell
+npm.cmd run check:prod-api
+```
+
 ### Enable Toss Payments later
 
 ```env
@@ -79,6 +88,12 @@ PAYPAL_ENV=sandbox
 PAYPAL_CURRENCY=USD
 PAYPAL_AMOUNT=5.99
 MOCK_PAYPAL=false
+```
+
+After adding PayPal keys, run:
+
+```powershell
+npm.cmd run check:prod-api -- --with-payments
 ```
 
 ## 4. Deploy

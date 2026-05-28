@@ -6,6 +6,9 @@ const baseInput: StoryInput = {
   breakupMoment: "마지막 통화",
   breakupReason: "서로의 오해",
   alternativeChoice: "그때 화내지 않고 미안하다는 말을 먼저 꺼내고 싶었어.",
+  lastScenePlace: "비 오는 정류장",
+  rememberedDetail: "젖은 운동화 끈과 꺼지지 않던 휴대폰 화면",
+  partnerBehavior: "화가 나면 대답보다 침묵이 먼저 길어지는 편",
   emotion: "regret",
   desiredEnding: "growth",
   protagonistAlias: "하린",
@@ -55,11 +58,21 @@ describe("moderateStoryInput", () => {
   it("blocks phone numbers and redacts them from sanitized input", () => {
     const result = moderateStoryInput({
       ...baseInput,
-      alternativeChoice: "010-1234-5678로 연락해서 마지막 말을 하고 싶었어."
+      rememberedDetail: "010-1234-5678이 적힌 영수증이 아직 남아 있어."
     });
 
     expect(result.allowed).toBe(false);
     expect(result.categories).toContain("personal_data");
-    expect(result.sanitizedInput.alternativeChoice).toContain("[연락처 삭제]");
+    expect(result.sanitizedInput.rememberedDetail).toContain("[연락처 삭제]");
+  });
+
+  it("checks newly added scene fields for unsafe content", () => {
+    const result = moderateStoryInput({
+      ...baseInput,
+      lastScenePlace: "상대 회사 앞에서 몰래 기다리던 밤"
+    });
+
+    expect(result.allowed).toBe(false);
+    expect(result.categories).toContain("stalking");
   });
 });

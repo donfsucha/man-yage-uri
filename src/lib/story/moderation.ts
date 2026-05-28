@@ -19,11 +19,11 @@ const checks: Array<{
 }> = [
   {
     category: "self_harm",
-    pattern: /(자해|죽고\s*싶|극단적\s*선택|사라지고\s*싶|목숨)/i
+    pattern: /(자해|죽고\s*싶|극단적\s*선택|사라지고\s*싶|못\s*살)/i
   },
   {
     category: "stalking",
-    pattern: /(집\s*앞|회사\s*앞|몰래\s*따라|감시|위치\s*추적|찾아가)/i
+    pattern: /(집\s*앞|회사\s*앞|몰래\s*따라|감시|위치\s*추적|찾아가|기다리던\s*밤)/i
   },
   {
     category: "threat",
@@ -40,6 +40,9 @@ function serializeInput(input: StoryInput) {
     input.breakupMoment,
     input.breakupReason,
     input.alternativeChoice,
+    input.lastScenePlace,
+    input.rememberedDetail,
+    input.partnerBehavior,
     input.protagonistAlias,
     input.partnerAlias
   ].join("\n");
@@ -61,6 +64,9 @@ export function moderateStoryInput(input: StoryInput): ModerationResult {
     breakupMoment: redactPersonalData(input.breakupMoment),
     breakupReason: redactPersonalData(input.breakupReason),
     alternativeChoice: redactPersonalData(input.alternativeChoice),
+    lastScenePlace: redactPersonalData(input.lastScenePlace),
+    rememberedDetail: redactPersonalData(input.rememberedDetail),
+    partnerBehavior: redactPersonalData(input.partnerBehavior),
     protagonistAlias: redactPersonalData(input.protagonistAlias),
     partnerAlias: redactPersonalData(input.partnerAlias)
   };

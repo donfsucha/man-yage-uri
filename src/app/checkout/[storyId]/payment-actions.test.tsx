@@ -59,4 +59,19 @@ describe("PaymentActions", () => {
       expect.objectContaining({ method: "POST" })
     );
   });
+
+  test("does not render mock payment buttons when real PayPal is enabled", () => {
+    vi.stubGlobal("fetch", vi.fn());
+
+    render(
+      <PaymentActions
+        mockPayPal={false}
+        paypalClientId="paypal-client"
+        paypalCurrency="USD"
+        storyId="story-1"
+      />
+    );
+
+    expect(screen.queryAllByRole("button")).toHaveLength(0);
+  });
 });

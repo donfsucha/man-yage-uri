@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { getRuntimeConfig } from "@/lib/config/runtime";
 import { completeMockPaidStory } from "@/lib/story/persistence";
 
 const MockConfirmRequestSchema = z.object({
@@ -24,6 +25,13 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: "결제 정보를 확인해 주세요." },
       { status: 400 }
+    );
+  }
+
+  if (!getRuntimeConfig().mockPayPal) {
+    return NextResponse.json(
+      { error: "Mock payment confirmation is disabled." },
+      { status: 403 }
     );
   }
 

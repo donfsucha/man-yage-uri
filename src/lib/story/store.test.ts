@@ -17,6 +17,9 @@ const input: StoryInput = {
   breakupMoment: "마지막 통화",
   breakupReason: "서로의 오해",
   alternativeChoice: "그때 화내지 않고 미안하다는 말을 먼저 꺼내고 싶었어.",
+  lastScenePlace: "비 오는 정류장",
+  rememberedDetail: "젖은 운동화 끈과 꺼지지 않던 휴대폰 화면",
+  partnerBehavior: "화가 나면 대답보다 침묵이 먼저 길어지는 편",
   emotion: "regret",
   desiredEnding: "growth",
   protagonistAlias: "하린",
@@ -31,6 +34,7 @@ describe("story store", () => {
 
     expect(stored.status).toBe("preview_ready");
     expect(stored.selectedChoiceId).toBeNull();
+    expect(stored.story.scenes.length).toBeGreaterThanOrEqual(3);
   });
 
   it("selects a valid next choice and moves the story to choice_selected", () => {

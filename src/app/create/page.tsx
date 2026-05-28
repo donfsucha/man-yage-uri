@@ -3,11 +3,15 @@
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { trackEvent } from "@/components/event-tracker";
+import { formatStoryInputIssues, getLocalStoryInputIssue } from "./validation-errors";
 
 type FormState = {
   breakupMoment: string;
   breakupReason: string;
   alternativeChoice: string;
+  lastScenePlace: string;
+  rememberedDetail: string;
+  partnerBehavior: string;
   emotion: string;
   desiredEnding: string;
   protagonistAlias: string;
@@ -20,6 +24,9 @@ const initialState: FormState = {
   breakupMoment: "마지막 통화",
   breakupReason: "서로의 오해",
   alternativeChoice: "",
+  lastScenePlace: "",
+  rememberedDetail: "",
+  partnerBehavior: "",
   emotion: "regret",
   desiredEnding: "growth",
   protagonistAlias: "",
@@ -41,6 +48,15 @@ export default function CreatePage() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+
+    const localIssue = getLocalStoryInputIssue(form);
+
+    if (localIssue) {
+      setError(localIssue.message);
+      document.getElementById(localIssue.fieldId)?.focus();
+      return;
+    }
+
     setIsSubmitting(true);
     void trackEvent({ eventName: "story_start", metadata: { page: "create" } });
 
@@ -55,7 +71,11 @@ export default function CreatePage() {
       const result = await response.json();
 
       if (!response.ok) {
-        setError(result.error ?? "1화 생성 중 문제가 발생했습니다.");
+        setError(
+          result.issues
+            ? formatStoryInputIssues(result.issues)
+            : result.error ?? "1화 생성 중 문제가 발생했습니다."
+        );
         return;
       }
 
@@ -126,11 +146,57 @@ export default function CreatePage() {
             <textarea
               id="alternativeChoice"
               maxLength={600}
+              minLength={5}
               placeholder="예: 화내지 않고 미안하다는 말을 먼저 꺼내고 싶었어."
               value={form.alternativeChoice}
               onChange={(event) => update("alternativeChoice", event.target.value)}
               required
             />
+          </div>
+
+          <div className="grid gap-4 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-strong)] p-4">
+            <p className="text-sm font-black text-[color:var(--accent)]">
+              장면을 더 리얼하게 만드는 질문
+            </p>
+
+            <div className="field">
+              <label htmlFor="lastScenePlace">마지막 장면의 장소</label>
+              <input
+                id="lastScenePlace"
+                maxLength={80}
+                minLength={2}
+                placeholder="예: 비 오는 정류장, 동네 골목 입구, 마지막으로 앉았던 카페"
+                value={form.lastScenePlace}
+                onChange={(event) => update("lastScenePlace", event.target.value)}
+                required
+              />
+            </div>
+
+            <div className="field">
+              <label htmlFor="rememberedDetail">아직 기억나는 작은 디테일</label>
+              <textarea
+                id="rememberedDetail"
+                maxLength={160}
+                minLength={2}
+                placeholder="예: 젖은 운동화 끈, 식어버린 커피, 꺼지지 않던 휴대폰 화면"
+                value={form.rememberedDetail}
+                onChange={(event) => update("rememberedDetail", event.target.value)}
+                required
+              />
+            </div>
+
+            <div className="field">
+              <label htmlFor="partnerBehavior">상대가 자주 보이던 말투나 행동</label>
+              <input
+                id="partnerBehavior"
+                maxLength={160}
+                minLength={2}
+                placeholder="예: 화가 나면 대답보다 침묵이 먼저 길어지는 편"
+                value={form.partnerBehavior}
+                onChange={(event) => update("partnerBehavior", event.target.value)}
+                required
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

@@ -32,3 +32,8 @@ coverage/
 attached_plan.docx
 figma_xv320_detail/
 XV-320_detail_page_KC.md
+*.pid
+pdf-page*.png
+pdf_images/
+tmp/
+supabase/migrations/Untitled-*.txt

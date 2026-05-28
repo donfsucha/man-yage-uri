@@ -9,8 +9,10 @@ import type {
   StoryEvent,
   StoredPreviewStory,
   StoryInput,
+  StoryScene,
   StoryStatus
 } from "./schema";
+import { getChapterChoices } from "./story-choices";
 
 type StoryInputRow = {
   id: string;
@@ -21,6 +23,8 @@ type StoryInputRow = {
   desired_ending: StoryInput["desiredEnding"];
   protagonist_alias: string;
   partner_alias: string;
+  raw_input?: Partial<StoryInput> | null;
+  sanitized_input?: Partial<StoryInput> | null;
 };
 
 type StoryRow = {
@@ -44,7 +48,18 @@ type ChapterRow = {
   ending_hook: string;
 };
 
+type SceneRow = {
+  scene_no: number;
+  title: string;
+  setting: string;
+  body: string;
+  dialogue: string;
+  visual_prompt: string;
+  emotion: string;
+};
+
 type ChoiceRow = {
+  chapter_no: number;
   choice_id: ChoiceId;
   label: string;
   is_selected: boolean;
@@ -67,11 +82,52 @@ type AnalyticsEventRow = {
   created_at: string;
 };
 
+type SupabaseError = { message?: string } | null | undefined;
+type SupabaseResult = { data: unknown; error: SupabaseError };
+
+function isMissingStoryScenesTableError(error: SupabaseError) {
+  const message = error?.message ?? "";
+
+  return (
+    message.includes("story_scenes") &&
+    (message.includes("schema cache") ||
+      message.includes("Could not find the table") ||
+      message.includes("relation") ||
+      message.includes("does not exist"))
+  );
+}
+
+function isMissingStoryChoiceChapterNoError(error: SupabaseError) {
+  const message = error?.message ?? "";
+
+  return (
+    message.includes("story_choices") &&
+    message.includes("chapter_no") &&
+    (message.includes("schema cache") ||
+      message.includes("column") ||
+      message.includes("does not exist"))
+  );
+}
+
 function toStoryInput(row: StoryInputRow): StoryInput {
+  const savedInput = row.sanitized_input ?? row.raw_input ?? {};
+
   return {
     breakupMoment: row.breakup_moment,
     breakupReason: row.breakup_reason,
     alternativeChoice: row.alternative_choice,
+    lastScenePlace:
+      typeof savedInput.lastScenePlace === "string"
+        ? savedInput.lastScenePlace
+        : row.breakup_moment,
+    rememberedDetail:
+      typeof savedInput.rememberedDetail === "string"
+        ? savedInput.rememberedDetail
+        : "그날의 공기와 표정",
+    partnerBehavior:
+      typeof savedInput.partnerBehavior === "string"
+        ? savedInput.partnerBehavior
+        : "대답보다 침묵이 먼저 길어지는 편",
     emotion: row.emotion,
     desiredEnding: row.desired_ending,
     protagonistAlias: row.protagonist_alias,
@@ -81,12 +137,35 @@ function toStoryInput(row: StoryInputRow): StoryInput {
   };
 }
 
-function toChapter(row: ChapterRow): StoryChapter {
+function toChapter(
+  row: ChapterRow,
+  selectedChoiceId: ChoiceId | null,
+  choicesByChapterNo: Map<number, NextChoice[]>
+): StoryChapter {
+  const storedChoices = choicesByChapterNo.get(row.chapter_no) ?? [];
+  const nextChoices =
+    storedChoices.length > 0
+      ? storedChoices
+      : getChapterChoices(selectedChoiceId, row.chapter_no);
+
   return {
     chapter_no: row.chapter_no,
     chapter_title: row.title,
     body: row.body,
-    ending_hook: row.ending_hook
+    ending_hook: row.ending_hook,
+    ...(nextChoices.length > 0 ? { next_choices: nextChoices } : {})
+  };
+}
+
+function toScene(row: SceneRow): StoryScene {
+  return {
+    scene_no: row.scene_no,
+    scene_title: row.title,
+    setting: row.setting,
+    body: row.body,
+    dialogue: row.dialogue,
+    visual_prompt: row.visual_prompt,
+    emotion: row.emotion
   };
 }
 
@@ -95,6 +174,18 @@ function toChoice(row: ChoiceRow): NextChoice {
     choice_id: row.choice_id,
     label: row.label
   };
+}
+
+function groupChoicesByChapterNo(rows: ChoiceRow[]) {
+  const choicesByChapterNo = new Map<number, NextChoice[]>();
+
+  for (const row of rows) {
+    const choices = choicesByChapterNo.get(row.chapter_no) ?? [];
+    choices.push(toChoice(row));
+    choicesByChapterNo.set(row.chapter_no, choices);
+  }
+
+  return choicesByChapterNo;
 }
 
 function toPayment(row: PaymentRow | null): MockPayment | null {
@@ -124,7 +215,14 @@ function toStoryEvent(row: AnalyticsEventRow): StoryEvent {
 
 async function hydrateStory(row: StoryRow): Promise<StoredPreviewStory | null> {
   const supabase = createSupabaseServiceClient();
-  const [inputResult, chapterResult, choiceResult, paymentResult] = await Promise.all([
+  const [
+    inputResult,
+    chapterResult,
+    sceneResult,
+    initialChoiceResult,
+    paymentResult
+  ] =
+    await Promise.all([
     supabase.from("story_inputs").select("*").eq("id", row.input_id).single(),
     supabase
       .from("story_chapters")
@@ -132,9 +230,15 @@ async function hydrateStory(row: StoryRow): Promise<StoredPreviewStory | null> {
       .eq("story_id", row.id)
       .order("chapter_no", { ascending: true }),
     supabase
-      .from("story_choices")
-      .select("choice_id,label,is_selected")
+      .from("story_scenes")
+      .select("scene_no,title,setting,body,dialogue,visual_prompt,emotion")
       .eq("story_id", row.id)
+      .order("scene_no", { ascending: true }),
+    supabase
+      .from("story_choices")
+      .select("chapter_no,choice_id,label,is_selected")
+      .eq("story_id", row.id)
+      .order("chapter_no", { ascending: true })
       .order("choice_id", { ascending: true }),
     supabase
       .from("payments")
@@ -145,21 +249,58 @@ async function hydrateStory(row: StoryRow): Promise<StoredPreviewStory | null> {
       .maybeSingle()
   ]);
 
-  if (inputResult.error || chapterResult.error || choiceResult.error) {
+  const sceneTableMissing = isMissingStoryScenesTableError(sceneResult.error);
+  let choiceResult: SupabaseResult = initialChoiceResult;
+  const choiceChapterNoMissing = isMissingStoryChoiceChapterNoError(choiceResult.error);
+
+  if (choiceChapterNoMissing) {
+    choiceResult = await supabase
+      .from("story_choices")
+      .select("choice_id,label,is_selected")
+      .eq("story_id", row.id)
+      .order("choice_id", { ascending: true });
+
+    if (!choiceResult.error && Array.isArray(choiceResult.data)) {
+      choiceResult = {
+        ...choiceResult,
+        data: choiceResult.data.map((choice) => ({
+          ...(choice as ChoiceRow),
+          chapter_no: 1
+        }))
+      };
+    }
+  }
+
+  if (
+    inputResult.error ||
+    chapterResult.error ||
+    (sceneResult.error && !sceneTableMissing) ||
+    choiceResult.error
+  ) {
     throw new Error(
       inputResult.error?.message ??
         chapterResult.error?.message ??
+        (!sceneTableMissing ? sceneResult.error?.message : undefined) ??
         choiceResult.error?.message
     );
   }
 
-  if (!inputResult.data || !chapterResult.data || !choiceResult.data) {
+  if (
+    !inputResult.data ||
+    !chapterResult.data ||
+    (!sceneTableMissing && !sceneResult.data) ||
+    !choiceResult.data
+  ) {
     return null;
   }
 
   const input = toStoryInput(inputResult.data as StoryInputRow);
-  const choices = (choiceResult.data as ChoiceRow[]).map(toChoice);
-  const chapters = (chapterResult.data as ChapterRow[]).map(toChapter);
+  const choicesByChapterNo = groupChoicesByChapterNo(choiceResult.data as ChoiceRow[]);
+  const choices = choicesByChapterNo.get(1) ?? [];
+  const chapters = (chapterResult.data as ChapterRow[]).map((chapter) =>
+    toChapter(chapter, row.selected_choice_id, choicesByChapterNo)
+  );
+  const scenes = sceneTableMissing ? [] : (sceneResult.data as SceneRow[]).map(toScene);
   const status =
     row.is_paid && chapters.some((chapter) => chapter.chapter_no === 5)
       ? "completed"
@@ -170,6 +311,7 @@ async function hydrateStory(row: StoryRow): Promise<StoredPreviewStory | null> {
     emotional_tone: row.tone,
     summary: row.summary,
     chapters,
+    scenes,
     next_choices: choices,
     safety_flags: {
       contains_self_harm_risk: false,
@@ -243,16 +385,52 @@ export async function savePreviewStoryToSupabase(
   }));
   const choiceRows = story.next_choices.map((choice) => ({
     story_id: storyResult.data.id,
+    chapter_no: 1,
     choice_id: choice.choice_id,
     label: choice.label
   }));
-  const [chapterResult, choiceResult] = await Promise.all([
+  const sceneRows = story.scenes.map((scene) => ({
+    story_id: storyResult.data.id,
+    scene_no: scene.scene_no,
+    title: scene.scene_title,
+    setting: scene.setting,
+    body: scene.body,
+    dialogue: scene.dialogue,
+    visual_prompt: scene.visual_prompt,
+    emotion: scene.emotion
+  }));
+  const [chapterResult, sceneResult, initialChoiceResult] = await Promise.all([
     supabase.from("story_chapters").insert(chapterRows),
+    supabase.from("story_scenes").insert(sceneRows),
     supabase.from("story_choices").insert(choiceRows)
   ]);
+  let choiceResult = initialChoiceResult;
+  const choiceChapterNoMissing = isMissingStoryChoiceChapterNoError(choiceResult.error);
 
-  if (chapterResult.error || choiceResult.error) {
-    throw new Error(chapterResult.error?.message ?? choiceResult.error?.message);
+  if (choiceChapterNoMissing) {
+    const legacyChoiceRows = story.next_choices.map((choice) => ({
+      story_id: storyResult.data.id,
+      choice_id: choice.choice_id,
+      label: choice.label
+    }));
+    choiceResult = await supabase.from("story_choices").insert(legacyChoiceRows);
+  }
+
+  const sceneTableMissing = isMissingStoryScenesTableError(sceneResult.error);
+  const finalChoiceChapterNoMissing = isMissingStoryChoiceChapterNoError(
+    choiceResult.error
+  );
+
+  if (
+    chapterResult.error ||
+    (sceneResult.error && !sceneTableMissing) ||
+    (choiceResult.error && !finalChoiceChapterNoMissing)
+  ) {
+    throw new Error(
+      chapterResult.error?.message ??
+        (!sceneTableMissing ? sceneResult.error?.message : undefined) ??
+        (!finalChoiceChapterNoMissing ? choiceResult.error?.message : undefined)
+    );
   }
 
   return hydrateStory(storyResult.data as StoryRow);
@@ -304,7 +482,7 @@ export async function selectStoryChoiceInSupabase(storyId: string, choiceId: str
   }
 
   const supabase = createSupabaseServiceClient();
-  const [storyResult, resetResult, selectedResult] = await Promise.all([
+  const [storyResult, initialResetResult, initialSelectedResult] = await Promise.all([
     supabase
       .from("stories")
       .update({
@@ -313,13 +491,37 @@ export async function selectStoryChoiceInSupabase(storyId: string, choiceId: str
         updated_at: new Date().toISOString()
       })
       .eq("id", storyId),
-    supabase.from("story_choices").update({ is_selected: false }).eq("story_id", storyId),
+    supabase
+      .from("story_choices")
+      .update({ is_selected: false })
+      .eq("story_id", storyId)
+      .eq("chapter_no", 1),
     supabase
       .from("story_choices")
       .update({ is_selected: true })
       .eq("story_id", storyId)
+      .eq("chapter_no", 1)
       .eq("choice_id", choiceId)
   ]);
+  let resetResult = initialResetResult;
+  let selectedResult = initialSelectedResult;
+
+  if (
+    isMissingStoryChoiceChapterNoError(resetResult.error) ||
+    isMissingStoryChoiceChapterNoError(selectedResult.error)
+  ) {
+    [resetResult, selectedResult] = await Promise.all([
+      supabase
+        .from("story_choices")
+        .update({ is_selected: false })
+        .eq("story_id", storyId),
+      supabase
+        .from("story_choices")
+        .update({ is_selected: true })
+        .eq("story_id", storyId)
+        .eq("choice_id", choiceId)
+    ]);
+  }
 
   if (storyResult.error || resetResult.error || selectedResult.error) {
     throw new Error(
@@ -412,6 +614,15 @@ export async function completePaymentInSupabase(
     ending_hook: chapter.ending_hook,
     is_free: false
   }));
+  const choiceRows = chapters.flatMap((chapter) =>
+    (chapter.next_choices ?? []).map((choice) => ({
+      story_id: storyId,
+      chapter_no: chapter.chapter_no,
+      choice_id: choice.choice_id,
+      label: choice.label,
+      is_selected: false
+    }))
+  );
   const chapterResult = await supabase
     .from("story_chapters")
     .upsert(chapterRows, { onConflict: "story_id,chapter_no" });
@@ -421,7 +632,12 @@ export async function completePaymentInSupabase(
   }
 
   const now = new Date().toISOString();
-  const [paymentResult, storyResult] = await Promise.all([
+  const [choiceResult, paymentResult, storyResult] = await Promise.all([
+    choiceRows.length > 0
+      ? supabase
+          .from("story_choices")
+          .upsert(choiceRows, { onConflict: "story_id,chapter_no,choice_id" })
+      : Promise.resolve({ error: null }),
     supabase
       .from("payments")
       .update({ status: "paid", updated_at: now })
@@ -437,8 +653,18 @@ export async function completePaymentInSupabase(
       .eq("id", storyId)
   ]);
 
-  if (paymentResult.error || storyResult.error) {
-    throw new Error(paymentResult.error?.message ?? storyResult.error?.message);
+  const choiceChapterNoMissing = isMissingStoryChoiceChapterNoError(choiceResult.error);
+
+  if (
+    (choiceResult.error && !choiceChapterNoMissing) ||
+    paymentResult.error ||
+    storyResult.error
+  ) {
+    throw new Error(
+      (!choiceChapterNoMissing ? choiceResult.error?.message : undefined) ??
+        paymentResult.error?.message ??
+        storyResult.error?.message
+    );
   }
 
   return getStoryFromSupabase(storyId);

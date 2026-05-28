@@ -1,6 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ChapterReader } from "./chapter-reader";
 import { getStory } from "@/lib/story/persistence";
+import {
+  formatEstimatedPages,
+  getStoryLengthStats
+} from "@/lib/story/story-length";
 
 export const dynamic = "force-dynamic";
 
@@ -19,17 +24,18 @@ export default async function StoryPage({ params }: StoryPageProps) {
   }
 
   const isCompleted = stored.status === "completed";
+  const lengthStats = getStoryLengthStats(stored.story);
 
   return (
     <main className="page-shell">
-      <article className="mobile-frame grid gap-6 pt-4">
+      <article className="reader-frame grid gap-6 pt-4">
         <header className="grid gap-3">
           <div className="flex items-center justify-between gap-3">
             <Link className="text-sm font-bold text-[color:var(--accent)]" href="/library">
               보관함
             </Link>
             <span className="text-sm font-bold text-[color:var(--muted)]">
-              {isCompleted ? "완결" : "미리보기"}
+              {isCompleted ? "완결" : "미리보기"} · {formatEstimatedPages(lengthStats)}
             </span>
           </div>
           <div className="grid gap-2">
@@ -48,22 +54,11 @@ export default async function StoryPage({ params }: StoryPageProps) {
           </section>
         ) : null}
 
-        <section className="grid gap-5">
-          {stored.story.chapters.map((chapter) => (
-            <section className="panel grid gap-4 p-5" key={chapter.chapter_no}>
-              <div className="grid gap-1">
-                <p className="text-sm font-bold text-[color:var(--accent)]">
-                  {chapter.chapter_no}화
-                </p>
-                <h2 className="text-2xl font-black">{chapter.chapter_title}</h2>
-              </div>
-              <p className="whitespace-pre-wrap text-[17px] leading-8">{chapter.body}</p>
-              <p className="border-l-4 border-[color:var(--accent)] bg-[color:var(--surface-strong)] p-4 font-bold leading-7">
-                {chapter.ending_hook}
-              </p>
-            </section>
-          ))}
-        </section>
+        <ChapterReader
+          chapters={stored.story.chapters}
+          isCompleted={isCompleted}
+          selectedChoiceId={stored.selectedChoiceId}
+        />
 
         <section className="notice">
           이 이야기는 실제 인물의 마음이나 미래를 예측하지 않는 픽션 콘텐츠입니다.

@@ -35,6 +35,20 @@ MOCK_TOSS=true
 MOCK_PAYPAL=true
 ```
 
+Before deploying with real story generation, run:
+
+```powershell
+npm.cmd run check:prod-api
+```
+
+This checks that Supabase and OpenAI are in real API mode and verifies the
+Supabase schema required by scene-based stories. Use this while payments are
+still mocked. After PayPal keys are added, run:
+
+```powershell
+npm.cmd run check:prod-api -- --with-payments
+```
+
 ## Conversion validation
 
 The current MVP is set up to test whether readers want to continue after the
@@ -56,6 +70,7 @@ payments, and checkout click counts.
 
 ```powershell
 npm.cmd test
+npm.cmd run check:prod-api
 npm.cmd run build
 npm.cmd start
 ```

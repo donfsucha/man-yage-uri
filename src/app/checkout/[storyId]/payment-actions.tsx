@@ -54,6 +54,7 @@ export function PaymentActions({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const shouldRenderPayPalSdk = !mockPayPal && Boolean(paypalClientId);
+  const shouldRenderMockConfirm = mockPayPal || !paypalClientId;
 
   const recordCheckoutClick = useCallback((source: "mock_complete" | "paypal") => {
     void trackEvent({
@@ -220,13 +221,14 @@ export function PaymentActions({
       <button
         className="button-primary w-full"
         disabled={isSubmitting}
+        hidden={!shouldRenderMockConfirm}
         onClick={completeWithMock}
         type="button"
       >
         {isSubmitting ? "5화 완결 생성 중" : "5화 완결 보기 — 7,900원"}
       </button>
 
-      {mockPayPal || !paypalClientId ? (
+      {shouldRenderMockConfirm ? (
         <button
           className="button-secondary w-full"
           disabled={isSubmitting}
