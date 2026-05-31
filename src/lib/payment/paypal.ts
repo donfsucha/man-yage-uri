@@ -4,7 +4,7 @@ type PayPalEnv = "sandbox" | "live";
 
 type PayPalOrderPayloadInput = {
   storyId: string;
-  title: string;
+  title?: string;
   amount: string;
   currency: string;
 };
@@ -17,7 +17,33 @@ type PayPalOrderResponse = {
 type PayPalCaptureResponse = {
   id?: string;
   status?: string;
+  purchase_units?: Array<{
+    custom_id?: string;
+    payments?: {
+      captures?: Array<{
+        id?: string;
+        status?: string;
+        amount?: {
+          currency_code?: string;
+          value?: string;
+        };
+      }>;
+    };
+  }>;
 };
+
+export type PayPalCaptureResult = {
+  orderId: string;
+  status: string;
+  storyId: string | null;
+  captureId: string | null;
+  amount: string | null;
+  currency: string | null;
+};
+
+export const PAYPAL_PRODUCT_NAME = "What If Us - Complete Story";
+export const PAYPAL_PRODUCT_DESCRIPTION =
+  "A five-chapter AI-generated fictional story based on your selected emotional turning point.";
 
 export function getPayPalBaseUrl(env: PayPalEnv) {
   return env === "live"
@@ -25,21 +51,70 @@ export function getPayPalBaseUrl(env: PayPalEnv) {
     : "https://api-m.sandbox.paypal.com";
 }
 
+export function normalizePayPalAmount(amount: string, currency: string) {
+  const numericAmount = Number(amount);
+
+  if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+    throw new Error("PayPal amount must be a positive number.");
+  }
+
+  return currency.toUpperCase() === "JPY"
+    ? String(Math.round(numericAmount))
+    : numericAmount.toFixed(2);
+}
+
+export function toPaymentMinorUnits(amount: string, currency: string) {
+  const normalizedAmount = normalizePayPalAmount(amount, currency);
+  const multiplier = currency.toUpperCase() === "JPY" ? 1 : 100;
+
+  return Math.round(Number(normalizedAmount) * multiplier);
+}
+
+export function isExpectedPayPalCapture(
+  capture: PayPalCaptureResult,
+  expected: { storyId: string; amount: string; currency: string }
+) {
+  return (
+    capture.status === "COMPLETED" &&
+    capture.storyId === expected.storyId &&
+    capture.currency === expected.currency.toUpperCase() &&
+    capture.amount === normalizePayPalAmount(expected.amount, expected.currency)
+  );
+}
+
 export function toPayPalOrderPayload({
   storyId,
-  title,
   amount,
   currency
 }: PayPalOrderPayloadInput) {
+  const normalizedCurrency = currency.toUpperCase();
+
   return {
     intent: "CAPTURE",
     purchase_units: [
       {
         custom_id: storyId,
-        description: `${title} - five episode pack`,
+        description: PAYPAL_PRODUCT_NAME,
+        items: [
+          {
+            name: PAYPAL_PRODUCT_NAME,
+            description: PAYPAL_PRODUCT_DESCRIPTION,
+            quantity: "1",
+            unit_amount: {
+              currency_code: normalizedCurrency,
+              value: normalizePayPalAmount(amount, normalizedCurrency)
+            }
+          }
+        ],
         amount: {
-          currency_code: currency,
-          value: amount
+          currency_code: normalizedCurrency,
+          value: normalizePayPalAmount(amount, normalizedCurrency),
+          breakdown: {
+            item_total: {
+              currency_code: normalizedCurrency,
+              value: normalizePayPalAmount(amount, normalizedCurrency)
+            }
+          }
         }
       }
     ]
@@ -123,9 +198,18 @@ export async function capturePayPalOrder(orderId: string) {
   }
 
   const data = (await response.json()) as PayPalCaptureResponse;
+  const purchaseUnit = data.purchase_units?.[0];
+  const completedCapture =
+    purchaseUnit?.payments?.captures?.find(
+      (capture) => capture.status === "COMPLETED"
+    ) ?? purchaseUnit?.payments?.captures?.[0];
 
   return {
     orderId: data.id ?? orderId,
-    status: data.status ?? "UNKNOWN"
+    status: data.status ?? completedCapture?.status ?? "UNKNOWN",
+    storyId: purchaseUnit?.custom_id ?? null,
+    captureId: completedCapture?.id ?? null,
+    amount: completedCapture?.amount?.value ?? null,
+    currency: completedCapture?.amount?.currency_code ?? null
   };
 }

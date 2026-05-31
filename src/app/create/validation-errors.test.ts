@@ -18,6 +18,20 @@ describe("formatStoryInputIssues", () => {
     expect(formatStoryInputIssues({})).toBe("입력값을 확인해 주세요.");
   });
 
+  it("formats validation messages in English", () => {
+    expect(
+      formatStoryInputIssues(
+        {
+          alternativeChoice: ["Too small"],
+          agreedToPrivacyNotice: ["Invalid input"]
+        },
+        "en"
+      )
+    ).toBe(
+      "Please check: What you wish you had said or done(at least 5 characters), Privacy notice agreement(required)"
+    );
+  });
+
   it("returns the first local field that prevents generation", () => {
     expect(
       getLocalStoryInputIssue({
@@ -49,5 +63,27 @@ describe("formatStoryInputIssues", () => {
         agreedToPrivacyNotice: true
       })
     ).toBeNull();
+  });
+
+  it("returns local validation issues in English", () => {
+    expect(
+      getLocalStoryInputIssue(
+        {
+          alternativeChoice: "no",
+          lastScenePlace: "rainy bus stop",
+          rememberedDetail: "wet shoelaces",
+          partnerBehavior: "went quiet before answering",
+          protagonistAlias: "Harin",
+          partnerAlias: "Yerim",
+          agreedToFictionNotice: true,
+          agreedToPrivacyNotice: true
+        },
+        "en"
+      )
+    ).toEqual({
+      fieldId: "alternativeChoice",
+      message:
+        "Please enter What you wish you had said or done: at least 5 characters."
+    });
   });
 });

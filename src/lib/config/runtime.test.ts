@@ -31,7 +31,7 @@ describe("getRuntimeConfig", () => {
       PAYPAL_CLIENT_SECRET: "paypal-secret",
       PAYPAL_ENV: "live",
       PAYPAL_CURRENCY: "USD",
-      PAYPAL_AMOUNT: "5.99",
+      PAYPAL_AMOUNT: "4.99",
       MOCK_EXTERNAL_SERVICES: "true"
     });
 
@@ -39,6 +39,6 @@ describe("getRuntimeConfig", () => {
     expect(config.paypalClientId).toBe("paypal-client");
     expect(config.paypalEnv).toBe("live");
     expect(config.paypalCurrency).toBe("USD");
-    expect(config.paypalAmount).toBe("5.99");
+    expect(config.paypalAmount).toBe("4.99");
   });
 });

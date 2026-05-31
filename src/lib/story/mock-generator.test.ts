@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { generateMockPaidChapters, generateMockPreview } from "./mock-generator";
 import type { NextChoice, StoryInput } from "./schema";
-import { countReadableChars } from "./story-length";
+import { countReadableChars, LONG_FORM_TARGETS } from "./story-length";
 
 const input: StoryInput = {
   breakupMoment: "마지막 통화",
@@ -116,7 +116,9 @@ describe("generateMockPreview", () => {
     const story = generateMockPreview(input);
     const freeEpisodeText = `${story.chapters[0].body}\n${story.chapters[0].ending_hook}`;
 
-    expect(textLength(freeEpisodeText)).toBeGreaterThanOrEqual(4000);
+    expect(textLength(freeEpisodeText)).toBeGreaterThanOrEqual(
+      LONG_FORM_TARGETS.freePreview.minChars
+    );
   });
 
   it("adds a first-episode choice that creates a reason to stop", () => {
@@ -128,13 +130,37 @@ describe("generateMockPreview", () => {
     );
   });
 
+  it("creates an English preview when requested", () => {
+    const story = generateMockPreview({
+      ...input,
+      outputLanguage: "en",
+      breakupMoment: "the night it ended by text",
+      breakupReason: "a misunderstanding between us",
+      alternativeChoice: "I wish I had apologized first instead of getting angry.",
+      lastScenePlace: "a rainy bus stop",
+      rememberedDetail: "wet shoelaces and a glowing phone screen",
+      partnerBehavior: "went silent before answering",
+      protagonistAlias: "Harin",
+      partnerAlias: "Yerim"
+    });
+    const combined = `${story.summary}\n${story.chapters[0].body}\n${story.chapters[0].ending_hook}`;
+
+    expect(story.next_choices[0].label).toBe(
+      "Find the real reason behind the read message"
+    );
+    expect(combined).toContain("[Yerim is typing...]");
+    expect(combined).toContain("safe fictional");
+  });
+
   it("opens the free episode with regret and unfinished longing", () => {
     const story = generateMockPreview(input);
     const combined = `${story.summary}\n${story.chapters[0].body}\n${story.chapters[0].ending_hook}`;
 
     expect(combined).toContain("그때 딱 한 문장만 다르게 말했더라면");
     expect(combined).toContain("아직 마음속에서 끝나지 않은 장면");
-    expect(combined).toContain("다시 만나자는 말이 아니라");
+    expect(combined).toContain("읽음");
+    expect(combined).toContain("[그 사람 님이 메시지를 입력 중입니다...]");
+    expect(combined).toContain("어느 이야기의 방향");
   });
 
   it("does not include duplicate punctuation artifacts that break immersion", () => {
@@ -214,11 +240,15 @@ describe("generateMockPaidChapters", () => {
       .map((chapter) => `${chapter.body}\n${chapter.ending_hook}`)
       .join("\n");
 
-    expect(textLength(fullText)).toBeGreaterThanOrEqual(44000);
-    expect(textLength(fullText)).toBeLessThanOrEqual(56000);
+    expect(textLength(fullText)).toBeGreaterThanOrEqual(
+      LONG_FORM_TARGETS.fullStory.minChars
+    );
+    expect(textLength(fullText)).toBeLessThanOrEqual(
+      LONG_FORM_TARGETS.fullStory.maxChars
+    );
     for (const chapter of paidChapters) {
       expect(textLength(`${chapter.body}\n${chapter.ending_hook}`)).toBeLessThanOrEqual(
-        13000
+        LONG_FORM_TARGETS.paidChapter.maxChars
       );
     }
   });

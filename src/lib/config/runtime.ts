@@ -59,6 +59,6 @@ export function getRuntimeConfig(env: RuntimeEnv = process.env) {
     paypalClientSecret: env.PAYPAL_CLIENT_SECRET ?? "",
     paypalEnv,
     paypalCurrency: env.PAYPAL_CURRENCY || "USD",
-    paypalAmount: env.PAYPAL_AMOUNT || "5.99"
+    paypalAmount: env.PAYPAL_AMOUNT || "4.99"
   };
 }

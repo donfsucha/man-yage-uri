@@ -39,14 +39,17 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ eventId: event.id });
   } catch (error) {
+    console.warn(
+      "Analytics event could not be recorded.",
+      error instanceof Error ? error.message : error
+    );
+
     return NextResponse.json(
       {
-        error:
-          error instanceof Error
-            ? error.message
-            : "이벤트 기록에 실패했습니다."
+        accepted: true,
+        analyticsStored: false
       },
-      { status: 500 }
+      { status: 202 }
     );
   }
 }

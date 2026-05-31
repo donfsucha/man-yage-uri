@@ -78,3 +78,9 @@ npm.cmd start
 ## Deployment
 
 See [docs/operations/deploy-vercel.md](docs/operations/deploy-vercel.md).
+
+## PayPal sandbox
+
+While Toss Payments is under review, use
+[docs/operations/paypal-setup.md](docs/operations/paypal-setup.md) to create a
+PayPal Sandbox app, add the keys, and test the checkout flow.

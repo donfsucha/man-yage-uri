@@ -52,10 +52,14 @@ export async function getStories() {
   return shouldUseSupabase() ? listStoriesFromSupabase() : listStories();
 }
 
-export async function chooseStoryDirection(storyId: string, choiceId: string) {
+export async function chooseStoryDirection(
+  storyId: string,
+  choiceId: string,
+  customChoiceText?: string
+) {
   return shouldUseSupabase()
-    ? selectStoryChoiceInSupabase(storyId, choiceId)
-    : selectStoryChoice(storyId, choiceId);
+    ? selectStoryChoiceInSupabase(storyId, choiceId, customChoiceText)
+    : selectStoryChoice(storyId, choiceId, customChoiceText);
 }
 
 export async function prepareMockPayment(storyId: string) {
@@ -71,10 +75,10 @@ export async function prepareExternalPayment(
 ) {
   return shouldUseSupabase()
     ? createPaymentInSupabase(storyId, amount, orderId)
-    : createMockPayment(storyId, amount);
+    : createMockPayment(storyId, amount, orderId);
 }
 
-export async function completePreparedPaidStory(storyId: string) {
+export async function completePreparedPaidStory(storyId: string, orderId?: string) {
   const existing = await getStory(storyId);
 
   if (
@@ -100,7 +104,7 @@ export async function completePreparedPaidStory(storyId: string) {
   const paidChapters = await generatePaidStoryChapters(existing.input, selectedChoice);
 
   return shouldUseSupabase()
-    ? completePaymentInSupabase(storyId, paidChapters)
+    ? completePaymentInSupabase(storyId, paidChapters, orderId)
     : completeMockPayment(storyId);
 }
 

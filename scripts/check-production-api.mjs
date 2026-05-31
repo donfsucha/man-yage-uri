@@ -90,6 +90,18 @@ export function validateProductionApiConfig(env, options = {}) {
     if (!env.PAYPAL_CLIENT_SECRET) {
       errors.push("PAYPAL_CLIENT_SECRET is required when checking payments.");
     }
+
+    if (!["sandbox", "live"].includes(env.PAYPAL_ENV || "sandbox")) {
+      errors.push("PAYPAL_ENV must be sandbox or live.");
+    }
+
+    if (!/^[A-Z]{3}$/.test(env.PAYPAL_CURRENCY || "USD")) {
+      errors.push("PAYPAL_CURRENCY must be a 3-letter currency code such as USD.");
+    }
+
+    if (!env.PAYPAL_AMOUNT || !Number.isFinite(Number(env.PAYPAL_AMOUNT)) || Number(env.PAYPAL_AMOUNT) <= 0) {
+      errors.push("PAYPAL_AMOUNT must be a positive number.");
+    }
   }
 
   return {

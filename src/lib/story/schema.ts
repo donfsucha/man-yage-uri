@@ -16,6 +16,7 @@ export const DesiredEndingSchema = z.enum([
 ]);
 
 export const StoryInputSchema = z.object({
+  outputLanguage: z.enum(["ko", "en"]).optional(),
   breakupMoment: z.string().min(2).max(80),
   breakupReason: z.string().min(2).max(80),
   alternativeChoice: z.string().min(5).max(600),

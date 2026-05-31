@@ -81,12 +81,15 @@ MOCK_TOSS=false
 
 ### Enable PayPal later
 
+Sandbox setup steps are in
+[docs/operations/paypal-setup.md](paypal-setup.md).
+
 ```env
 NEXT_PUBLIC_PAYPAL_CLIENT_ID=
 PAYPAL_CLIENT_SECRET=
 PAYPAL_ENV=sandbox
 PAYPAL_CURRENCY=USD
-PAYPAL_AMOUNT=5.99
+PAYPAL_AMOUNT=4.99
 MOCK_PAYPAL=false
 ```
 
@@ -113,5 +116,5 @@ After saving environment variables:
   `PAYPAL_CLIENT_SECRET` as server-side environment variables only.
 - Do not expose secret keys in client code or screenshots.
 - Use PayPal sandbox before changing `PAYPAL_ENV=live`.
-- Decide whether the international PayPal price should stay at `USD 5.99` or
+- Decide whether the international PayPal price should stay at `USD 4.99` or
   match the Korean `KRW 7,900` product price through a separate pricing policy.

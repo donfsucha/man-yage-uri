@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getRuntimeConfig } from "@/lib/config/runtime";
-import { capturePayPalOrder } from "@/lib/payment/paypal";
+import {
+  capturePayPalOrder,
+  isExpectedPayPalCapture
+} from "@/lib/payment/paypal";
 import {
   completeMockPaidStory,
   completePreparedPaidStory
@@ -50,14 +53,26 @@ export async function POST(request: Request) {
 
     const capture = await capturePayPalOrder(parsed.data.orderId);
 
-    if (capture.status !== "COMPLETED") {
+    if (
+      !isExpectedPayPalCapture(capture, {
+        storyId: parsed.data.storyId,
+        amount: config.paypalAmount,
+        currency: config.paypalCurrency
+      })
+    ) {
       return NextResponse.json(
-        { error: "PayPal payment has not completed.", payPalStatus: capture.status },
+        {
+          error: "PayPal payment details do not match this story.",
+          payPalStatus: capture.status
+        },
         { status: 400 }
       );
     }
 
-    const completed = await completePreparedPaidStory(parsed.data.storyId);
+    const completed = await completePreparedPaidStory(
+      parsed.data.storyId,
+      parsed.data.orderId
+    );
 
     if (!completed) {
       return NextResponse.json(

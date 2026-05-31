@@ -66,6 +66,24 @@ describe("story store", () => {
     expect(paidReady?.payment?.status).toBe("pending");
   });
 
+  it("stores a custom direction label when selecting the custom choice slot", () => {
+    const stored = savePreviewStory(input, generateMockPreview(input));
+    const updated = selectStoryChoice(
+      stored.id,
+      "C",
+      "서로의 오해를 확인하고 각자의 성장을 선택한다"
+    );
+
+    expect(updated?.selectedChoiceId).toBe("C");
+    expect(
+      updated?.story.next_choices.find((choice) => choice.choice_id === "C")?.label
+    ).toBe("서로의 오해를 확인하고 각자의 성장을 선택한다");
+    expect(
+      updated?.story.chapters[0].next_choices?.find((choice) => choice.choice_id === "C")
+        ?.label
+    ).toBe("서로의 오해를 확인하고 각자의 성장을 선택한다");
+  });
+
   it("completes a mock payment and appends paid chapters", () => {
     const stored = savePreviewStory(input, generateMockPreview(input));
     selectStoryChoice(stored.id, "A");

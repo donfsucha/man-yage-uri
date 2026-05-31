@@ -23,7 +23,7 @@ describe("create page copy", () => {
   it("uses last scene place examples that pass moderation", () => {
     const pagePath = join(process.cwd(), "src", "app", "create", "page.tsx");
     const source = readFileSync(pagePath, "utf8");
-    const match = source.match(/placeholder="([^"]*비 오는 정류장[^"]*)"/);
+    const match = source.match(/lastScenePlacePlaceholder:\s*"([^"]*비 오는 정류장[^"]*)"/);
 
     expect(match).not.toBeNull();
 

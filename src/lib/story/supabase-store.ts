@@ -12,7 +12,7 @@ import type {
   StoryScene,
   StoryStatus
 } from "./schema";
-import { getChapterChoices } from "./story-choices";
+import { getChapterChoices, getStoryLanguage } from "./story-choices";
 
 type StoryInputRow = {
   id: string;
@@ -113,6 +113,7 @@ function toStoryInput(row: StoryInputRow): StoryInput {
   const savedInput = row.sanitized_input ?? row.raw_input ?? {};
 
   return {
+    outputLanguage: savedInput.outputLanguage === "en" ? "en" : "ko",
     breakupMoment: row.breakup_moment,
     breakupReason: row.breakup_reason,
     alternativeChoice: row.alternative_choice,
@@ -140,13 +141,14 @@ function toStoryInput(row: StoryInputRow): StoryInput {
 function toChapter(
   row: ChapterRow,
   selectedChoiceId: ChoiceId | null,
-  choicesByChapterNo: Map<number, NextChoice[]>
+  choicesByChapterNo: Map<number, NextChoice[]>,
+  language: ReturnType<typeof getStoryLanguage> = "ko"
 ): StoryChapter {
   const storedChoices = choicesByChapterNo.get(row.chapter_no) ?? [];
   const nextChoices =
     storedChoices.length > 0
       ? storedChoices
-      : getChapterChoices(selectedChoiceId, row.chapter_no);
+      : getChapterChoices(selectedChoiceId, row.chapter_no, language);
 
   return {
     chapter_no: row.chapter_no,
@@ -295,10 +297,11 @@ async function hydrateStory(row: StoryRow): Promise<StoredPreviewStory | null> {
   }
 
   const input = toStoryInput(inputResult.data as StoryInputRow);
+  const language = getStoryLanguage(input);
   const choicesByChapterNo = groupChoicesByChapterNo(choiceResult.data as ChoiceRow[]);
   const choices = choicesByChapterNo.get(1) ?? [];
   const chapters = (chapterResult.data as ChapterRow[]).map((chapter) =>
-    toChapter(chapter, row.selected_choice_id, choicesByChapterNo)
+    toChapter(chapter, row.selected_choice_id, choicesByChapterNo, language)
   );
   const scenes = sceneTableMissing ? [] : (sceneResult.data as SceneRow[]).map(toScene);
   const status =
@@ -467,7 +470,11 @@ export async function listStoriesFromSupabase() {
   );
 }
 
-export async function selectStoryChoiceInSupabase(storyId: string, choiceId: string) {
+export async function selectStoryChoiceInSupabase(
+  storyId: string,
+  choiceId: string,
+  customChoiceText?: string
+) {
   const existing = await getStoryFromSupabase(storyId);
 
   if (
@@ -482,6 +489,29 @@ export async function selectStoryChoiceInSupabase(storyId: string, choiceId: str
   }
 
   const supabase = createSupabaseServiceClient();
+  if (customChoiceText) {
+    const customChoiceResult = await supabase
+      .from("story_choices")
+      .update({ label: customChoiceText })
+      .eq("story_id", storyId)
+      .eq("chapter_no", 1)
+      .eq("choice_id", choiceId);
+
+    if (isMissingStoryChoiceChapterNoError(customChoiceResult.error)) {
+      const legacyCustomChoiceResult = await supabase
+        .from("story_choices")
+        .update({ label: customChoiceText })
+        .eq("story_id", storyId)
+        .eq("choice_id", choiceId);
+
+      if (legacyCustomChoiceResult.error) {
+        throw new Error(legacyCustomChoiceResult.error.message);
+      }
+    } else if (customChoiceResult.error) {
+      throw new Error(customChoiceResult.error.message);
+    }
+  }
+
   const [storyResult, initialResetResult, initialSelectedResult] = await Promise.all([
     supabase
       .from("stories")
@@ -564,13 +594,23 @@ export async function createPaymentInSupabase(
 
   if (existingPayment.data) {
     if (existingPayment.data.status === "pending") {
-      const updateResult = await supabase
-        .from("stories")
-        .update({ status: "payment_pending", updated_at: new Date().toISOString() })
-        .eq("id", storyId);
+      const now = new Date().toISOString();
+      const [paymentUpdateResult, storyUpdateResult] = await Promise.all([
+        supabase
+          .from("payments")
+          .update({ amount, order_id: orderId, updated_at: now })
+          .eq("story_id", storyId)
+          .eq("status", "pending"),
+        supabase
+          .from("stories")
+          .update({ status: "payment_pending", updated_at: now })
+          .eq("id", storyId)
+      ]);
 
-      if (updateResult.error) {
-        throw new Error(updateResult.error.message);
+      if (paymentUpdateResult.error || storyUpdateResult.error) {
+        throw new Error(
+          paymentUpdateResult.error?.message ?? storyUpdateResult.error?.message
+        );
       }
     }
 
@@ -603,7 +643,8 @@ export async function createPaymentInSupabase(
 
 export async function completePaymentInSupabase(
   storyId: string,
-  chapters: StoryChapter[]
+  chapters: StoryChapter[],
+  orderId?: string
 ) {
   const supabase = createSupabaseServiceClient();
   const chapterRows = chapters.map((chapter) => ({
@@ -632,17 +673,23 @@ export async function completePaymentInSupabase(
   }
 
   const now = new Date().toISOString();
+  let paymentQuery = supabase
+    .from("payments")
+    .update({ status: "paid", updated_at: now })
+    .eq("story_id", storyId)
+    .eq("status", "pending");
+
+  if (orderId) {
+    paymentQuery = paymentQuery.eq("order_id", orderId);
+  }
+
   const [choiceResult, paymentResult, storyResult] = await Promise.all([
     choiceRows.length > 0
       ? supabase
           .from("story_choices")
           .upsert(choiceRows, { onConflict: "story_id,chapter_no,choice_id" })
       : Promise.resolve({ error: null }),
-    supabase
-      .from("payments")
-      .update({ status: "paid", updated_at: now })
-      .eq("story_id", storyId)
-      .eq("status", "pending"),
+    paymentQuery,
     supabase
       .from("stories")
       .update({

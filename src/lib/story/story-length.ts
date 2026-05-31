@@ -3,20 +3,21 @@ import type { StoryChapter, StoryScene } from "./schema";
 export const LONG_FORM_TARGETS = {
   charsPerMobilePage: 550,
   freePreview: {
-    minChars: 4000,
-    maxChars: 6500,
-    minPages: 8,
-    maxPages: 12
+    minChars: 1800,
+    maxChars: 4500,
+    minPages: 4,
+    maxPages: 8
   },
   paidChapter: {
-    minChars: 10000,
-    maxChars: 13000
+    minChars: 5000,
+    maxChars: 6500
   },
   fullStory: {
-    minChars: 44000,
-    maxChars: 56000,
-    minPages: 80,
-    maxPages: 100
+    minChars: 24000,
+    maxChars: 32000,
+    targetPages: 50,
+    minPages: 45,
+    maxPages: 55
   }
 } as const;
 
@@ -73,6 +74,11 @@ export function getStoryLengthStats(story: StoryLengthInput): StoryLengthStats {
   };
 }
 
-export function formatEstimatedPages(stats: Pick<StoryLengthStats, "estimatedPages">) {
-  return `모바일 약 ${stats.estimatedPages}페이지`;
+export function formatEstimatedPages(
+  stats: Pick<StoryLengthStats, "estimatedPages">,
+  locale: "ko" | "en" = "ko"
+) {
+  return locale === "en"
+    ? `about ${stats.estimatedPages} mobile pages`
+    : `모바일 약 ${stats.estimatedPages}페이지`;
 }

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getRuntimeConfig } from "@/lib/config/runtime";
-import { createPayPalOrder } from "@/lib/payment/paypal";
+import { createPayPalOrder, toPaymentMinorUnits } from "@/lib/payment/paypal";
 import { getStory, prepareExternalPayment } from "@/lib/story/persistence";
 
 const CreatePayPalOrderRequestSchema = z.object({
@@ -49,7 +49,11 @@ export async function POST(request: Request) {
       amount: config.paypalAmount,
       currency: config.paypalCurrency
     });
-    const payment = await prepareExternalPayment(story.id, order.orderId);
+    const payment = await prepareExternalPayment(
+      story.id,
+      order.orderId,
+      toPaymentMinorUnits(config.paypalAmount, config.paypalCurrency)
+    );
 
     if (!payment) {
       return NextResponse.json(

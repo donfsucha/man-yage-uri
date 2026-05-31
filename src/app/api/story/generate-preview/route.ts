@@ -34,7 +34,10 @@ export async function POST(request: Request) {
   if (!moderation.allowed) {
     return NextResponse.json(
       {
-        error: moderation.message,
+        error:
+          parsedInput.data.outputLanguage === "en"
+            ? "This input is difficult to turn into safe fiction. Please remove self-harm, threats, surveillance, attempts to visit/contact, or personal information. If these feelings continue, consider reaching out to someone you trust or a professional support service."
+            : moderation.message,
         categories: moderation.categories
       },
       { status: 400 }

@@ -52,7 +52,31 @@ export function getPreviewStory(id: string) {
   return getStore().get(id) ?? null;
 }
 
-export function selectStoryChoice(storyId: string, choiceId: string) {
+function applyCustomChoiceLabel(story: PreviewStory, choiceId: string, label?: string) {
+  if (!label) {
+    return story;
+  }
+
+  const updateChoices = (choices: typeof story.next_choices | undefined) =>
+    choices?.map((choice) =>
+      choice.choice_id === choiceId ? { ...choice, label } : choice
+    );
+
+  return {
+    ...story,
+    next_choices: updateChoices(story.next_choices) ?? story.next_choices,
+    chapters: story.chapters.map((chapter) => ({
+      ...chapter,
+      next_choices: updateChoices(chapter.next_choices)
+    }))
+  };
+}
+
+export function selectStoryChoice(
+  storyId: string,
+  choiceId: string,
+  customChoiceText?: string
+) {
   const story = getPreviewStory(storyId);
 
   if (!story) {
@@ -73,6 +97,7 @@ export function selectStoryChoice(storyId: string, choiceId: string) {
 
   const updated: StoredPreviewStory = {
     ...story,
+    story: applyCustomChoiceLabel(story.story, choiceId, customChoiceText),
     status: "choice_selected",
     selectedChoiceId: choiceId as ChoiceId,
     updatedAt: new Date().toISOString()
@@ -88,7 +113,11 @@ export function listStories() {
   );
 }
 
-export function createMockPayment(storyId: string, amount = 7900) {
+export function createMockPayment(
+  storyId: string,
+  amount = 7900,
+  orderId = `order_${storyId}`
+) {
   const story = getPreviewStory(storyId);
 
   if (!story || !story.selectedChoiceId) {
@@ -113,7 +142,7 @@ export function createMockPayment(storyId: string, amount = 7900) {
     payment: {
       productType: "five_episode_complete",
       amount,
-      orderId: `order_${storyId}`,
+      orderId,
       status: "pending",
       createdAt: now,
       updatedAt: now

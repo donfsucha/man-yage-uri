@@ -5,6 +5,7 @@ import { generateMockPreview } from "@/lib/story/mock-generator";
 import type { StoryInput } from "@/lib/story/schema";
 import {
   assertGeneratedPreviewQuality,
+  parseOpenAiJson,
   toStoryGenerationError
 } from "./story-generator";
 
@@ -31,14 +32,45 @@ describe("story generator prompts", () => {
     );
 
     expect(source).toContain("The core emotion is regret and lingering longing");
+    expect(source).toContain("must not end with calm self-acceptance");
+    expect(source).toContain("strongest default safe cliffhanger");
+    expect(source).toContain("old message suddenly marked as read");
+    expect(source).toContain("visible typing indicator");
+    expect(source).toContain("[예림 님이 메시지를 입력 중입니다...]");
+    expect(source).toContain("Write the generated story in natural English");
+    expect(source).toContain("[Yerim is typing...]");
+    expect(source).toContain("force the protagonist to choose a story direction");
+    expect(source).toContain("short sharp dialogue flashback");
+    expect(source).toContain("specific unresolved clue");
+    expect(source).toContain("Pay off the chapter 1 cliffhanger immediately in chapter 2");
+    expect(source).toContain("read receipt or typing indicator");
+    expect(source).toContain("selected branch feel consequential");
     expect(source).toContain("Chapter 2 must pay off the selected regret in the first scene");
-    expect(source).toContain("Do not exceed 13,000 Korean characters per paid chapter");
+    expect(source).toContain("Make the paid story feel cinematic");
+    expect(source).toContain("The reader should feel the purchase was worth it by the end of chapter 2");
+    expect(source).toContain("one quotable sentence per paid chapter");
+    expect(source).toContain("viral-feeling scene");
+    expect(source).toContain("about 50 mobile pages");
+    expect(source).toContain("Avoid flat repetition");
+    expect(source).toContain("A motif may return at most twice in chapter 1");
+    expect(source).toContain("concrete past micro-episodes");
+    expect(source).toContain("Every two paragraphs must introduce a new concrete action");
+    expect(source).toContain("Do not repeat the same emotional image as filler");
+    expect(source).toContain("Do not exceed 6,500 characters per paid chapter");
     expect(source).toContain("zodTextFormat");
     expect(source).toContain("preview_story");
     expect(source).toContain("paid_story_chapters");
     expect(source).toContain("body_paragraphs");
-    expect(source).toContain("z.array(z.string().min(420).max(650)).length(12)");
-    expect(source).toContain("body: z.string().min(450).max(700)");
+    expect(source).toContain("z.array(z.string().min(300).max(480)).length(9)");
+    expect(source).toContain("body: z.string().min(80).max(180)");
+    expect(source).toContain("PREVIEW_MAX_OUTPUT_TOKENS = 12000");
+    expect(source).toContain("max_output_tokens: 22000");
+  });
+
+  it("maps truncated preview JSON to a retryable OpenAI preview error", () => {
+    expect(() => parseOpenAiJson('{"title":"unfinished"', "preview")).toThrow(
+      "OpenAI preview response was invalid JSON or truncated."
+    );
   });
 
   it("maps OpenAI quota failures to a customer-safe message", () => {

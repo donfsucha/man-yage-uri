@@ -5,7 +5,11 @@ import type {
   StoryInput,
   StoryScene
 } from "./schema";
-import { getChapterChoices, getInitialStoryChoices } from "./story-choices";
+import {
+  getChapterChoices,
+  getInitialStoryChoices,
+  getStoryLanguage
+} from "./story-choices";
 import { countReadableChars, LONG_FORM_TARGETS } from "./story-length";
 
 const emotionTone: Record<StoryInput["emotion"], string> = {
@@ -124,6 +128,91 @@ function rememberedDetailPhrases(input: StoryInput) {
   };
 }
 
+function buildEnglishScenes(input: StoryInput): StoryScene[] {
+  return [
+    {
+      scene_no: 1,
+      scene_title: "The Message Turns",
+      setting: input.lastScenePlace,
+      body: `The last place still holds ${input.rememberedDetail}. ${input.protagonistAlias} looks at the old message and realizes the breakup did not end as neatly as memory claimed.`,
+      dialogue: `"I should have said this differently," ${input.protagonistAlias} whispers.`,
+      visual_prompt:
+        "Cinematic mobile web novel scene, rainy urban night, phone screen glowing, emotional but safe fictional breakup reflection",
+      emotion: "regret and suspense"
+    },
+    {
+      scene_no: 2,
+      scene_title: "A Tired Pattern",
+      setting: "A remembered ordinary day",
+      body: `${input.partnerAlias} used to show it through ${input.partnerBehavior}. What once looked like distance now feels like a scene ${input.protagonistAlias} never fully understood.`,
+      dialogue: `"You always decide what I mean before I finish."`,
+      visual_prompt:
+        "Quiet cafe memory, two people across a small table, restrained emotion, realistic modern romance",
+      emotion: "unfinished tenderness"
+    },
+    {
+      scene_no: 3,
+      scene_title: "The Typing Indicator",
+      setting: "A phone screen in the rain",
+      body: `The read receipt appears first. Then a small line flickers at the top of the screen: ${input.partnerAlias} is typing. The story stops exactly where a choice becomes necessary.`,
+      dialogue: `"[${input.partnerAlias} is typing...]"`,
+      visual_prompt:
+        "Close-up phone interface with typing indicator, rain reflections, high-tension romantic cliffhanger",
+      emotion: "cliffhanger"
+    }
+  ];
+}
+
+function englishPreviewBody(input: StoryInput, scenes: StoryScene[]) {
+  return buildEnglishLongBody(
+    `If ${input.protagonistAlias} had chosen one sentence differently, the night of ${input.breakupMoment} might not have become the same wound. This is not a way to predict ${input.partnerAlias}'s real heart. It is a safe fictional room where regret can be replayed without chasing anyone in the real world. ${input.breakupReason} had sounded simple at the time, but the scene kept refusing to stay simple.`,
+    [
+      () =>
+        `${scenes[0].body} The detail that returns first is ${input.rememberedDetail}. It is small enough to seem harmless, but precise enough to pull the whole night back into focus.`,
+      () =>
+        `The relationship had not broken in one dramatic argument. It had thinned through delayed replies, postponed promises, and ordinary days where both people acted fine while quietly keeping score.`,
+      () =>
+        `${scenes[1].body} The old version of ${input.protagonistAlias} treated every silence as proof. The new version lets the silence stay unknown long enough to become a question.`,
+      () =>
+        `"${input.alternativeChoice}" The sentence feels too late and too necessary at once. It does not ask for reunion. It only asks the story to stop lying about what hurt.`,
+      () =>
+        `The screen lights up again. The message that had stayed frozen suddenly changes to read, and the word looks almost physical, as if the phone has become a door with light under it.`,
+      () =>
+        `${scenes[2].body} ${input.protagonistAlias} cannot know what it means yet. That is why the next choice matters: fact, final day, or unsent truth.`
+    ],
+    LONG_FORM_TARGETS.freePreview.minChars + 250
+  );
+}
+
+function generateEnglishMockPreview(input: StoryInput): PreviewStory {
+  const scenes = buildEnglishScenes(input);
+  const nextChoices = getInitialStoryChoices("en");
+
+  return {
+    title: "The Night the Message Turned Read",
+    genre: "alternate-ending romance",
+    emotional_tone: "regretful, cinematic, and emotionally safe",
+    summary:
+      "A fictional breakup preview about the one sentence that might have changed the night, ending on a read receipt and a typing indicator that opens three paid story directions.",
+    chapters: [
+      {
+        chapter_no: 1,
+        chapter_title: "The Scene Opens Again",
+        body: englishPreviewBody(input, scenes),
+        ending_hook: `The old message suddenly changed to read. A second later, a small line flickered at the top of the screen: [${input.partnerAlias} is typing...] Between the rain and the light of the phone, ${input.protagonistAlias} had to decide which direction of the story to touch next.`,
+        next_choices: nextChoices
+      }
+    ],
+    scenes,
+    next_choices: nextChoices,
+    safety_flags: {
+      contains_self_harm_risk: false,
+      contains_stalking_risk: false,
+      requires_manual_review: false
+    }
+  };
+}
+
 type BeatFactory = (round: number) => string;
 
 function buildLongBody(
@@ -196,6 +285,47 @@ function buildLongBody(
     const sceneTurn = sceneTurns[index % sceneTurns.length];
     const detailTurn = detailTurns[index % detailTurns.length];
     paragraphs.push(`${lead} ${beat(round)} ${sceneTurn} ${detailTurn}`);
+    index += 1;
+
+    if (index > 80) {
+      break;
+    }
+  }
+
+  return paragraphs.join("\n\n");
+}
+
+function buildEnglishLongBody(
+  opening: string,
+  beats: BeatFactory[],
+  targetChars: number
+) {
+  const paragraphs = [opening.trim()];
+  let index = 0;
+  const leads = [
+    "Under the dim reflection of the phone screen,",
+    "When the rain softened the edge of the street,",
+    "At the exact place where memory usually becomes unfair,",
+    "Before either person could become the villain again,",
+    "As the ordinary noise of the night came back,",
+    "With one small object returning to the center of the scene,",
+    "After a silence that no longer needed to be solved,",
+    "When the old message stopped feeling like proof,"
+  ];
+  const turns = [
+    "This time, the scene moves through a new action instead of repeating the same ache.",
+    "The detail returns with a different meaning, so the regret has somewhere to go.",
+    "No one guesses the other person's real heart; the story stays inside visible facts and remembered moments.",
+    "A small reversal makes the memory feel less flat and more worth following.",
+    "The branch matters because the same breakup now opens a different consequence."
+  ];
+
+  while (countReadableChars(paragraphs.join("\n\n")) < targetChars) {
+    const beat = beats[index % beats.length];
+    const lead = leads[index % leads.length];
+    const turn = turns[index % turns.length];
+
+    paragraphs.push(`${lead} ${beat(index + 1)} ${turn}`);
     index += 1;
 
     if (index > 80) {
@@ -330,9 +460,14 @@ function buildScenes(input: StoryInput): StoryScene[] {
 }
 
 export function generateMockPreview(input: StoryInput): PreviewStory {
+  if (getStoryLanguage(input) === "en") {
+    return generateEnglishMockPreview(input);
+  }
+
   const scenes = buildScenes(input);
   const rememberedDetail = rememberedDetailPhrases(input);
-  const nextChoices = getInitialStoryChoices();
+  const language = getStoryLanguage(input);
+  const nextChoices = getInitialStoryChoices(language);
   const title =
     input.desiredEnding === "parallel_world"
       ? "우리가 헤어지지 않았던 밤"
@@ -350,9 +485,9 @@ export function generateMockPreview(input: StoryInput): PreviewStory {
         chapter_no: 1,
         chapter_title: "다시 열린 장면",
         body: buildPreviewChapterBody(input, scenes),
-        ending_hook: `${subject(
-          input.partnerAlias
-        )} 한참 뒤에야 낮은 목소리로 대답했다. "나도 사실 그 장면을 아직 잊지 못했어." 다시 만나자는 말이 아니라, 그날을 다르게 읽어도 되는지 묻는 목소리였다.`,
+        ending_hook: `갑자기 오래 멈춰 있던 마지막 문자가 '읽음'으로 바뀌었다. 심장이 내려앉는 순간 화면 위에 작은 글씨가 나타났다 사라지기를 반복했다. [${input.partnerAlias} 님이 메시지를 입력 중입니다...] 빗소리 사이에서 ${subject(
+          input.protagonistAlias
+        )} 굳어버린 손가락을 어느 이야기의 방향 위에 올려야 할지 선택해야 했다.`,
         next_choices: nextChoices
       }
     ],
@@ -370,6 +505,10 @@ export function generateMockPaidChapters(
   input: StoryInput,
   selectedChoice: NextChoice
 ): StoryChapter[] {
+  if (getStoryLanguage(input) === "en") {
+    return buildEnglishPaidArc(input, selectedChoice);
+  }
+
   if (selectedChoice.choice_id === "A") {
     return buildMisunderstandingArc(input);
   }
@@ -382,6 +521,100 @@ export function generateMockPaidChapters(
 }
 
 type PaidArc = "misunderstanding" | "last_day" | "letter";
+
+function buildEnglishPaidBody(input: StoryInput, arcName: string, opening: string) {
+  return buildEnglishLongBody(
+    opening,
+    [
+      () =>
+        `The first paid scene pays off the clue immediately: the read receipt was not a command to contact anyone, but a fictional sign that ${input.protagonistAlias}'s memory had left one fact unopened.`,
+      () =>
+        `${input.rememberedDetail} returns with a new function. It no longer decorates the breakup; it proves how ordinary details can hold the part of the truth both people avoided.`,
+      () =>
+        `${input.partnerAlias}'s habit, ${input.partnerBehavior}, is not treated as a mind to be guessed. The story only follows what ${input.protagonistAlias} saw, heard, and finally admitted.`,
+      () =>
+        `"${input.alternativeChoice}" becomes the sentence that changes the branch. In the ${arcName} route, it does not magically repair the relationship; it reveals what the relationship was asking them to face.`,
+      () =>
+        `A quiet reversal arrives in the middle of the chapter. The painful part was not only losing love, but realizing how much of the ending had been built from unfinished assumptions.`,
+      () =>
+        `By the end of the chapter, the purchase has given the reader one concrete answer and one sharper question. The story feels larger because the first clue now has consequences.`
+    ],
+    LONG_FORM_TARGETS.paidChapter.minChars + 420
+  );
+}
+
+function buildEnglishPaidArc(input: StoryInput, selectedChoice: NextChoice): StoryChapter[] {
+  const branch =
+    selectedChoice.choice_id === "B"
+      ? "last day"
+      : selectedChoice.choice_id === "C"
+        ? "unsent letter"
+        : "misunderstanding";
+  const choices = {
+    A: getChapterChoices("A", 2, "en"),
+    B: getChapterChoices("B", 2, "en"),
+    C: getChapterChoices("C", 2, "en")
+  };
+
+  return [
+    {
+      chapter_no: 2,
+      chapter_title:
+        selectedChoice.choice_id === "A"
+          ? "What the Read Receipt Changed"
+          : selectedChoice.choice_id === "B"
+            ? "A Borrowed Final Day"
+            : "The Letter That Stays Unsent",
+      body: buildEnglishPaidBody(
+        input,
+        branch,
+        `Chapter 2 opens where the free preview stopped: [${input.partnerAlias} is typing...] flickers once, then disappears. ${input.protagonistAlias} does not chase the signal. Instead, the story follows the chosen ${branch} route and turns the clue into a scene, an object, and a fact.`
+      ),
+      ending_hook:
+        selectedChoice.choice_id === "A"
+          ? "The truth was not that one person cared more. It was that both had been reading the wrong silence."
+          : selectedChoice.choice_id === "B"
+            ? "Before the day ended, kindness became more dangerous than anger."
+            : "The sentence that mattered most looked safer once it was addressed to no one.",
+      next_choices: choices[selectedChoice.choice_id]
+    },
+    {
+      chapter_no: 3,
+      chapter_title: "The Missing Middle",
+      body: buildEnglishPaidBody(
+        input,
+        branch,
+        `${input.breakupMoment} returns in fragments. ${input.protagonistAlias} stops trying to win the memory and starts noticing what each fragment was protecting.`
+      ),
+      ending_hook:
+        "The most painful evidence was not a confession, but the ordinary thing both of them remembered differently.",
+      next_choices: getChapterChoices(selectedChoice.choice_id, 3, "en")
+    },
+    {
+      chapter_no: 4,
+      chapter_title: "The Cost of a Different Choice",
+      body: buildEnglishPaidBody(
+        input,
+        branch,
+        `The chosen route begins to cost something. It asks ${input.protagonistAlias} to give up the simpler version of the breakup and carry a truer one instead.`
+      ),
+      ending_hook:
+        "For the first time, the ending did not ask to be pretty. It asked to be accurate.",
+      next_choices: getChapterChoices(selectedChoice.choice_id, 4, "en")
+    },
+    {
+      chapter_no: 5,
+      chapter_title: "A Memory That Can Be Carried",
+      body: buildEnglishPaidBody(
+        input,
+        branch,
+        `The final chapter does not promise a perfect reunion or a clean erasure. It lets ${input.protagonistAlias} keep what was real without turning the pain into a life sentence.`
+      ),
+      ending_hook:
+        "Some endings do not give love back. They give the person who loved a gentler way to remember."
+    }
+  ];
+}
 
 function paidBeats(input: StoryInput, arc: PaidArc): BeatFactory[] {
   const rememberedDetail = rememberedDetailPhrases(input);
@@ -478,12 +711,13 @@ function expandPaidBody(input: StoryInput, arc: PaidArc, opening: string) {
   return buildLongBody(
     opening,
     paidBeats(input, arc),
-    LONG_FORM_TARGETS.paidChapter.minChars
+    LONG_FORM_TARGETS.paidChapter.minChars + 420
   );
 }
 
 function buildMisunderstandingArc(input: StoryInput): StoryChapter[] {
   const rememberedDetail = rememberedDetailPhrases(input);
+  const language = getStoryLanguage(input);
 
   return [
     {
@@ -496,7 +730,7 @@ function buildMisunderstandingArc(input: StoryInput): StoryChapter[] {
       )}도 이번에는 단정하지 않았다. 두 사람은 서로의 마음을 맞히려 하지 않고, 실제로 있었던 말과 없었던 말, 보내지 못한 메시지와 너무 빨리 결론 낸 표정을 종이에 나누어 적었다.`),
       ending_hook:
         "기다린 건 답장이 아니라, 내가 틀리지 않았다는 증거였다. 그걸 인정하자 오해보다 더 오래된 미련이 모습을 드러냈다.",
-      next_choices: getChapterChoices("A", 2)
+      next_choices: getChapterChoices("A", 2, language)
     },
     {
       chapter_no: 3,
@@ -510,7 +744,7 @@ function buildMisunderstandingArc(input: StoryInput): StoryChapter[] {
       ending_hook: `${subject(
         input.partnerAlias
       )} 접힌 메모 한 장을 밀어 놓으며 말했다. "이건 그날 네가 못 들은 내 말이야."`,
-      next_choices: getChapterChoices("A", 3)
+      next_choices: getChapterChoices("A", 3, language)
     },
     {
       chapter_no: 4,
@@ -523,7 +757,7 @@ function buildMisunderstandingArc(input: StoryInput): StoryChapter[] {
       ),
       ending_hook:
         "그날 처음으로 두 사람은 같은 문장을 적었다. '우리는 끝났어도, 전부 오해였던 건 아니야.'",
-      next_choices: getChapterChoices("A", 4)
+      next_choices: getChapterChoices("A", 4, language)
     },
     {
       chapter_no: 5,
@@ -543,6 +777,7 @@ function buildMisunderstandingArc(input: StoryInput): StoryChapter[] {
 
 function buildLastDayArc(input: StoryInput): StoryChapter[] {
   const rememberedDetail = rememberedDetailPhrases(input);
+  const language = getStoryLanguage(input);
 
   return [
     {
@@ -551,7 +786,7 @@ function buildLastDayArc(input: StoryInput): StoryChapter[] {
       body: expandPaidBody(input, "last_day", `${subject(input.protagonistAlias)} 마지막 하루를 함께 보내는 방향을 골랐다. 되돌아가기 위한 하루가 아니라, 마음속에서 끝나지 못한 장면을 안전하게 닫기 위한 하루였다.\n\n두 사람은 ${input.lastScenePlace}에서 다시 만났다. ${rememberedDetail.asTopic} 여전히 선명했지만, 이번에는 그 디테일을 핑계로 붙잡지 않았다. 그냥 같이 걸었다. 말이 끊기면 끊긴 채로 두었다.`),
       ending_hook:
         "하루가 끝나기 전까지, 두 사람은 어떤 결론도 먼저 말하지 않기로 했다.",
-      next_choices: getChapterChoices("B", 2)
+      next_choices: getChapterChoices("B", 2, language)
     },
     {
       chapter_no: 3,
@@ -564,7 +799,7 @@ function buildLastDayArc(input: StoryInput): StoryChapter[] {
       ),
       ending_hook:
         "해가 기울자, 두 사람은 처음으로 '오늘이 마지막이라면'이라는 말을 입 밖에 냈다.",
-      next_choices: getChapterChoices("B", 3)
+      next_choices: getChapterChoices("B", 3, language)
     },
     {
       chapter_no: 4,
@@ -577,7 +812,7 @@ function buildLastDayArc(input: StoryInput): StoryChapter[] {
       ),
       ending_hook:
         "마지막 버스가 도착했을 때, 두 사람은 이 하루가 생각보다 다정했다는 사실을 인정했다.",
-      next_choices: getChapterChoices("B", 4)
+      next_choices: getChapterChoices("B", 4, language)
     },
     {
       chapter_no: 5,
@@ -596,6 +831,7 @@ function buildLastDayArc(input: StoryInput): StoryChapter[] {
 
 function buildLetterArc(input: StoryInput): StoryChapter[] {
   const rememberedDetail = rememberedDetailPhrases(input);
+  const language = getStoryLanguage(input);
 
   return [
     {
@@ -605,7 +841,7 @@ function buildLetterArc(input: StoryInput): StoryChapter[] {
       ending_hook: `봉투를 고르는 순간, ${subject(
         input.protagonistAlias
       )} 이 편지가 상대를 움직이기 위한 것이 아니라 자신을 살피기 위한 것임을 알았다.`,
-      next_choices: getChapterChoices("C", 2)
+      next_choices: getChapterChoices("C", 2, language)
     },
     {
       chapter_no: 3,
@@ -619,7 +855,7 @@ function buildLetterArc(input: StoryInput): StoryChapter[] {
       ending_hook: `마지막 줄을 남겨둔 채, ${subject(
         input.protagonistAlias
       )} 처음으로 편지를 접지 않고 밤을 보냈다.`,
-      next_choices: getChapterChoices("C", 3)
+      next_choices: getChapterChoices("C", 3, language)
     },
     {
       chapter_no: 4,
@@ -630,7 +866,7 @@ function buildLetterArc(input: StoryInput): StoryChapter[] {
       ),
       ending_hook:
         "책상 위에 놓인 두 번째 봉투에는 받는 사람 이름 대신 짧은 문장 하나가 적혔다. '이제 나에게.'",
-      next_choices: getChapterChoices("C", 4)
+      next_choices: getChapterChoices("C", 4, language)
     },
     {
       chapter_no: 5,

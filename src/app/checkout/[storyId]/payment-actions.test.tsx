@@ -33,6 +33,7 @@ describe("PaymentActions", () => {
 
     render(
       <PaymentActions
+        locale="en"
         mockPayPal={true}
         paypalClientId=""
         paypalCurrency="USD"
@@ -40,9 +41,11 @@ describe("PaymentActions", () => {
       />
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "PayPal 모의 결제로 확인" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm with mock PayPal" }));
 
-    await waitFor(() => expect(push).toHaveBeenCalledWith("/stories/story-1"));
+    await waitFor(() =>
+      expect(push).toHaveBeenCalledWith("/stories/story-1?lang=en")
+    );
     expect(fetch).toHaveBeenNthCalledWith(
       1,
       "/api/events/track",
@@ -65,6 +68,7 @@ describe("PaymentActions", () => {
 
     render(
       <PaymentActions
+        locale="en"
         mockPayPal={false}
         paypalClientId="paypal-client"
         paypalCurrency="USD"

@@ -9,13 +9,35 @@ type ChapterReaderProps = {
   chapters: StoryChapter[];
   isCompleted: boolean;
   selectedChoiceId: ChoiceId | null;
+  locale?: "ko" | "en";
 };
+
+const READER_COPY = {
+  ko: {
+    episodeSuffix: "화",
+    pagePrefix: "모바일 약",
+    pageSuffix: "페이지",
+    chooseNext: "다음 화로 이어질 장면을 고르세요",
+    unlockPrefix: "화의 선택을 고르면",
+    unlockSuffix: "화가 열립니다."
+  },
+  en: {
+    episodeSuffix: "",
+    pagePrefix: "about",
+    pageSuffix: "mobile pages",
+    chooseNext: "Choose the scene that opens the next chapter",
+    unlockPrefix: "Choose chapter",
+    unlockSuffix: "to open the next chapter."
+  }
+} satisfies Record<"ko" | "en", Record<string, string>>;
 
 export function ChapterReader({
   chapters,
   isCompleted,
+  locale = "ko",
   selectedChoiceId
 }: ChapterReaderProps) {
+  const copy = READER_COPY[locale];
   const [chapterChoices, setChapterChoices] = useState<Record<number, ChoiceId>>(
     () => {
       const initialChoices: Record<number, ChoiceId> = {};
@@ -53,7 +75,9 @@ export function ChapterReader({
           <section className="panel grid gap-4 p-5" key={chapter.chapter_no}>
             <div className="grid gap-1">
               <p className="text-sm font-bold text-[color:var(--accent)]">
-                {chapter.chapter_no}화 · 모바일 약 {cleanedPageCount}페이지
+                {locale === "en"
+                  ? `Chapter ${chapter.chapter_no} · ${copy.pagePrefix} ${cleanedPageCount} ${copy.pageSuffix}`
+                  : `${chapter.chapter_no}${copy.episodeSuffix} · ${copy.pagePrefix} ${cleanedPageCount}${copy.pageSuffix}`}
               </p>
               <h2 className="text-2xl font-black">{chapter.chapter_title}</h2>
             </div>
@@ -67,7 +91,7 @@ export function ChapterReader({
             {canChoose ? (
               <div className="grid gap-3 border-t border-[color:var(--border)] pt-4">
                 <p className="text-sm font-black text-[color:var(--accent)]">
-                  다음 화로 이어질 장면을 고르세요
+                  {copy.chooseNext}
                 </p>
                 <div className="grid gap-2">
                   {choices.map((choice) => {
@@ -100,8 +124,9 @@ export function ChapterReader({
 
       {isCompleted && nextLockedChapter ? (
         <section className="notice">
-          {visibleChapters.at(-1)?.chapter_no}화의 선택을 고르면{" "}
-          {nextLockedChapter.chapter_no}화가 열립니다.
+          {locale === "en"
+            ? `${copy.unlockPrefix} ${visibleChapters.at(-1)?.chapter_no} ${copy.unlockSuffix}`
+            : `${visibleChapters.at(-1)?.chapter_no}${copy.unlockPrefix} ${nextLockedChapter.chapter_no}${copy.unlockSuffix}`}
         </section>
       ) : null}
     </section>

@@ -1,13 +1,26 @@
-import type { ChoiceId, NextChoice } from "./schema";
+import type { ChoiceId, NextChoice, StoryInput } from "./schema";
 
-const initialChoices: NextChoice[] = [
-  { choice_id: "A", label: "내가 오해했던 장면을 다시 본다" },
-  { choice_id: "B", label: "끝까지 말하지 못한 진심을 꺼낸다" },
-  { choice_id: "C", label: "그 사람이 남긴 침묵의 의미를 다시 읽는다" }
-];
+type StoryLanguage = NonNullable<StoryInput["outputLanguage"]>;
 
-const chapterChoiceMap: Record<ChoiceId, Record<number, NextChoice[]>> = {
-  A: {
+const initialChoices: Record<StoryLanguage, NextChoice[]> = {
+  ko: [
+  { choice_id: "A", label: "읽음으로 바뀐 문자의 진짜 이유를 확인한다" },
+  { choice_id: "B", label: "마지막 하루에 숨은 다정함의 대가를 본다" },
+  { choice_id: "C", label: "예림이 끝내 말하지 않은 한 문장을 읽는다" }
+  ],
+  en: [
+    { choice_id: "A", label: "Find the real reason behind the read message" },
+    { choice_id: "B", label: "Spend the final day and uncover its cost" },
+    { choice_id: "C", label: "Read the sentence left unsaid" }
+  ]
+};
+
+const chapterChoiceMap: Record<
+  StoryLanguage,
+  Record<ChoiceId, Record<number, NextChoice[]>>
+> = {
+  ko: {
+    A: {
     2: [
       { choice_id: "A", label: "못 들은 말을 다시 확인한다" },
       { choice_id: "B", label: "내가 오해한 장면부터 인정한다" },
@@ -15,7 +28,7 @@ const chapterChoiceMap: Record<ChoiceId, Record<number, NextChoice[]>> = {
     ],
     3: [
       { choice_id: "A", label: "마지막 통화의 빈칸을 꺼낸다" },
-      { choice_id: "B", label: "정류장에서 놓친 표정을 떠올린다" },
+      { choice_id: "B", label: "정류장에 남은 시간을 다시 맞춘다" },
       { choice_id: "C", label: "사과보다 사실을 먼저 정리한다" }
     ],
     4: [
@@ -58,23 +71,82 @@ const chapterChoiceMap: Record<ChoiceId, Record<number, NextChoice[]>> = {
       { choice_id: "C", label: "마지막 문장을 용서가 아닌 기록으로 남긴다" }
     ]
   }
+  },
+  en: {
+    A: {
+      2: [
+        { choice_id: "A", label: "Check the words that were never heard" },
+        { choice_id: "B", label: "Admit the scene I misunderstood first" },
+        { choice_id: "C", label: "Do not decide why the silence happened" }
+      ],
+      3: [
+        { choice_id: "A", label: "Open the blank in the final call" },
+        { choice_id: "B", label: "Reset the time left at the bus stop" },
+        { choice_id: "C", label: "Sort out the facts before apologizing" }
+      ],
+      4: [
+        { choice_id: "A", label: "Apologize without promising reunion" },
+        { choice_id: "B", label: "Refuse to leave either person as the villain" },
+        { choice_id: "C", label: "Choose the last goodbye precisely" }
+      ]
+    },
+    B: {
+      2: [
+        { choice_id: "A", label: "Let the walk last a little longer" },
+        { choice_id: "B", label: "Return to the place they last sat together" },
+        { choice_id: "C", label: "Avoid saying the word reunion" }
+      ],
+      3: [
+        { choice_id: "A", label: "Endure the awkward silence" },
+        { choice_id: "B", label: "Bring out the object never returned" },
+        { choice_id: "C", label: "Say what today means if it is the last day" }
+      ],
+      4: [
+        { choice_id: "A", label: "Let the last bus pass" },
+        { choice_id: "B", label: "Do not mistake kindness for reunion" },
+        { choice_id: "C", label: "Leave gratitude instead of a promise" }
+      ]
+    },
+    C: {
+      2: [
+        { choice_id: "A", label: "Write the first sentence that will not be sent" },
+        { choice_id: "B", label: "Leave the recipient line empty" },
+        { choice_id: "C", label: "Delete the line that assumes their heart" }
+      ],
+      3: [
+        { choice_id: "A", label: "Choose the scene to leave in the envelope" },
+        { choice_id: "B", label: "Spend a night that needs no reply" },
+        { choice_id: "C", label: "Leave a sentence that arrives back to me" }
+      ],
+      4: [
+        { choice_id: "A", label: "Fold it away without sending it" },
+        { choice_id: "B", label: "Address the second envelope to myself" },
+        { choice_id: "C", label: "Leave the final line as a record, not forgiveness" }
+      ]
+    }
+  }
 };
 
-export function getInitialStoryChoices() {
-  return initialChoices;
+export function getStoryLanguage(input?: Pick<StoryInput, "outputLanguage"> | null) {
+  return input?.outputLanguage === "en" ? "en" : "ko";
+}
+
+export function getInitialStoryChoices(language: StoryLanguage = "ko") {
+  return initialChoices[language];
 }
 
 export function getChapterChoices(
   selectedChoiceId: ChoiceId | null,
-  chapterNo: number
+  chapterNo: number,
+  language: StoryLanguage = "ko"
 ) {
   if (chapterNo === 1) {
-    return getInitialStoryChoices();
+    return getInitialStoryChoices(language);
   }
 
   if (!selectedChoiceId || chapterNo >= 5) {
     return [];
   }
 
-  return chapterChoiceMap[selectedChoiceId]?.[chapterNo] ?? [];
+  return chapterChoiceMap[language][selectedChoiceId]?.[chapterNo] ?? [];
 }
