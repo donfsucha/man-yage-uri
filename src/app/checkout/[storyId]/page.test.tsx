@@ -25,7 +25,7 @@ vi.mock("@/lib/story/persistence", () => ({
       next_choices: [
         { choice_id: "A", label: "읽음으로 바뀐 문자의 진짜 이유를 확인한다" },
         { choice_id: "B", label: "마지막 하루에 숨은 다정함의 대가를 본다" },
-        { choice_id: "C", label: "예림이 끝내 말하지 않은 한 문장을 읽는다" }
+        { choice_id: "C", label: "예림이 끝내 말하지 못한 한 문장을 읽는다" }
       ]
     }
   })
@@ -41,9 +41,9 @@ describe("CheckoutPage", () => {
     );
 
     expect(screen.getByText("결제 후 바로 열리는 단서")).toBeTruthy();
-    expect(screen.getByText("읽음과 입력 중 표시 뒤에 숨은 그날의 진짜 이유")).toBeTruthy();
+    expect(screen.getByText("읽음 표시와 입력 중 문구 뒤에 숨은 그날의 진짜 이유")).toBeTruthy();
     expect(
-      screen.getByText("2화 첫 장면에서 읽음 표시와 입력 중 문구가 왜 동시에 떴는지 확인합니다.")
+      screen.getByText("2화 첫 장면에서 왜 읽음 표시와 입력 중 문구가 동시에 떴는지 확인합니다.")
     ).toBeTruthy();
     expect(screen.getByText("7,900원")).toBeTruthy();
   });

@@ -37,9 +37,13 @@ describe("story generator prompts", () => {
     expect(source).toContain("old message suddenly marked as read");
     expect(source).toContain("visible typing indicator");
     expect(source).toContain("[예림 님이 메시지를 입력 중입니다...]");
+    expect(source).toContain("[예림 님이 메시지를 입력 중입니다...]");
     expect(source).toContain("Write the generated story in natural English");
     expect(source).toContain("[Yerim is typing...]");
     expect(source).toContain("force the protagonist to choose a story direction");
+    expect(source).toContain("cinematic and behavioral");
+    expect(source).toContain("the protagonist's frozen finger must choose one direction");
+    expect(source).toContain("make the paid branch feel necessary");
     expect(source).toContain("short sharp dialogue flashback");
     expect(source).toContain("specific unresolved clue");
     expect(source).toContain("Pay off the chapter 1 cliffhanger immediately in chapter 2");

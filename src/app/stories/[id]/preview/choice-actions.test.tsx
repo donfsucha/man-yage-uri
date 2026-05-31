@@ -26,9 +26,9 @@ describe("ChoiceActions", () => {
       />
     );
 
-    expect(screen.getByText("읽음과 입력 중 표시 뒤에 숨은 그날의 진짜 이유")).toBeTruthy();
-    expect(screen.getByText("마지막 하루가 다정할수록 더 잔인해지는 이유")).toBeTruthy();
-    expect(screen.getByText("예림이 끝내 말하지 않은 한 문장의 정체")).toBeTruthy();
+    expect(screen.getByText("읽음 표시와 입력 중 문구 뒤에 숨은 그날의 진짜 이유")).toBeTruthy();
+    expect(screen.getByText("마지막 하루가 다정할수록 더 아프게 남는 이유")).toBeTruthy();
+    expect(screen.getByText("예림이 끝내 말하지 못한 한 문장의 정체")).toBeTruthy();
   });
 
   test("moves to checkout if saving a choice takes too long", async () => {

@@ -20,9 +20,9 @@ const unsafeCustomChoicePattern =
 
 const CHOICE_COPY = {
   ko: {
-    title: "우리의 다른 결말 보기 - 7,900원",
+    title: "다른 결말 보기 - 7,900원",
     body:
-      "방금 뜬 읽음 표시와 입력 중 문구의 의미가 선택한 방향에 따라 다르게 풀립니다. 결제는 단순한 다음 문장이 아니라, 이별의 이유를 직접 완성하는 선택입니다.",
+      "방금 뜬 읽음 표시와 입력 중 문구는 선택한 방향에 따라 다른 진실로 풀립니다. 다음 화면은 단순한 이어 읽기가 아니라, 그날의 오해와 끝내 하지 못한 한 문장을 확인하는 결제 지점입니다.",
     saving: "선택 저장 중",
     customLabel: "기타: 내가 원하는 결말 직접 쓰기",
     customExample:
@@ -38,7 +38,7 @@ const CHOICE_COPY = {
   en: {
     title: "Read the alternate ending - KRW 7,900",
     body:
-      "The read receipt and typing indicator mean something different depending on your chosen branch. This is not just the next paragraph; it is the choice that completes the reason for the breakup.",
+      "The read receipt and typing indicator unlock a different truth depending on your branch. This is not just the next paragraph; it is the paid moment where the misunderstanding and the sentence left unsaid finally pay off.",
     saving: "Saving choice",
     customLabel: "Other: write my own ending direction",
     customExample:
