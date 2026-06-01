@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, Suspense, useEffect, useState } from "react";
 import { trackEvent } from "@/components/event-tracker";
 import { formatStoryInputIssues, getLocalStoryInputIssue } from "./validation-errors";
@@ -186,10 +186,12 @@ const initialState: FormState = {
 
 function CreatePageContent() {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const locale: CreateLocale = searchParams.get("lang") === "en" ? "en" : "ko";
   const copy = CREATE_COPY[locale];
   const options = CREATE_OPTIONS[locale];
+  const languageHref = `${pathname || "/create"}?lang=${locale === "en" ? "ko" : "en"}`;
   const [form, setForm] = useState<FormState>(initialState);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -268,7 +270,7 @@ function CreatePageContent() {
           <div className="flex justify-end">
             <Link
               className="text-sm font-bold text-[color:var(--accent)]"
-              href={copy.otherLanguageHref}
+              href={languageHref}
             >
               {copy.otherLanguageLabel}
             </Link>
