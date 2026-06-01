@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PaymentActions } from "./payment-actions";
+import { BONUS_OFFER_COPY } from "@/lib/bonus/offer";
 import { getRuntimeConfig } from "@/lib/config/runtime";
 import { getChoicePurchaseHint } from "@/lib/story/choice-hints";
 import { getStory } from "@/lib/story/persistence";
@@ -100,6 +101,7 @@ export default async function CheckoutPage({
 
   const locale = getCheckoutLocale(query.lang, stored.input?.outputLanguage);
   const copy = CHECKOUT_COPY[locale];
+  const bonusCopy = BONUS_OFFER_COPY[locale];
   const otherLocale = locale === "en" ? "ko" : "en";
   const languageHref = `/checkout/${storyId}?lang=${otherLocale}`;
   const previewHref =
@@ -184,6 +186,67 @@ export default async function CheckoutPage({
                 {choiceHint.consequence}
               </p>
             </div>
+          </div>
+
+          <div className="grid gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-strong)] p-4">
+            <div>
+              <p className="text-sm font-bold text-[color:var(--accent)]">
+                {bonusCopy.curiosityTitle}
+              </p>
+              <p className="mt-1 text-sm leading-6 text-[color:var(--muted)]">
+                {bonusCopy.curiosityBody}
+              </p>
+            </div>
+            <ul className="grid gap-2">
+              {bonusCopy.curiosityItems.map((item) => (
+                <li
+                  className="flex items-center gap-2 rounded-md bg-white px-3 py-2 text-sm font-bold"
+                  key={item}
+                >
+                  <span className="h-2 w-2 rounded-full bg-[color:var(--accent)]" />
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="grid gap-3 rounded-lg border border-[color:var(--border)] bg-white p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-bold text-[color:var(--accent)]">
+                  {bonusCopy.bonusTitle}
+                </p>
+                <p className="mt-1 text-sm leading-6 text-[color:var(--muted)]">
+                  {bonusCopy.bonusBody}
+                </p>
+              </div>
+              <span className="shrink-0 rounded-full bg-[color:var(--surface-strong)] px-3 py-1 text-xs font-bold text-[color:var(--accent)]">
+                {bonusCopy.includedAfterPayment}
+              </span>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <div className="rounded-md bg-[color:var(--surface-strong)] p-3">
+                <p className="font-bold">{bonusCopy.guideTitle}</p>
+                <p className="mt-1 text-sm leading-6 text-[color:var(--muted)]">
+                  {bonusCopy.guideDescription}
+                </p>
+              </div>
+              <div className="rounded-md bg-[color:var(--surface-strong)] p-3">
+                <p className="font-bold">{bonusCopy.journalTitle}</p>
+                <p className="mt-1 text-sm leading-6 text-[color:var(--muted)]">
+                  {bonusCopy.journalDescription}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-[color:var(--accent)] bg-white p-4">
+            <p className="font-black text-[color:var(--accent)]">
+              {bonusCopy.guaranteeTitle}
+            </p>
+            <p className="mt-1 text-sm font-bold leading-6">
+              {bonusCopy.guaranteeBody}
+            </p>
           </div>
 
           <div className="grid gap-2 border-t border-[color:var(--border)] pt-4">

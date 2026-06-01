@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChapterReader } from "./chapter-reader";
+import { BONUS_LINKS, BONUS_OFFER_COPY } from "@/lib/bonus/offer";
 import { getStory } from "@/lib/story/persistence";
 import {
   formatEstimatedPages,
@@ -67,6 +68,7 @@ export default async function StoryPage({ params, searchParams }: StoryPageProps
 
   const locale = getStoryPageLocale(query.lang, stored.input.outputLanguage);
   const copy = STORY_COPY[locale];
+  const bonusCopy = BONUS_OFFER_COPY[locale];
   const otherLocale = locale === "en" ? "ko" : "en";
   const languageHref =
     otherLocale === "en" ? `/stories/${id}?lang=en` : `/stories/${id}`;
@@ -113,6 +115,60 @@ export default async function StoryPage({ params, searchParams }: StoryPageProps
           locale={locale}
           selectedChoiceId={stored.selectedChoiceId}
         />
+
+        {isCompleted ? (
+          <section className="panel grid gap-4 p-5">
+            <div className="grid gap-2">
+              <p className="text-sm font-bold text-[color:var(--accent)]">
+                {bonusCopy.bonusTitle}
+              </p>
+              <h2 className="text-2xl font-black">{bonusCopy.guaranteeTitle}</h2>
+              <p className="leading-7 text-[color:var(--muted)]">
+                {bonusCopy.bonusBody}
+              </p>
+              <p className="text-sm font-bold text-[color:var(--accent)]">
+                {bonusCopy.guaranteeBody}
+              </p>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-3 rounded-lg bg-[color:var(--surface-strong)] p-4">
+                <p className="font-black">{bonusCopy.koreanBonus}</p>
+                <a
+                  className="button-secondary w-full"
+                  download
+                  href={BONUS_LINKS.breakupGuideKo}
+                >
+                  {bonusCopy.downloadGuide}
+                </a>
+                <a
+                  className="button-secondary w-full"
+                  download
+                  href={BONUS_LINKS.journalTemplateKo}
+                >
+                  {bonusCopy.downloadJournal}
+                </a>
+              </div>
+              <div className="grid gap-3 rounded-lg bg-[color:var(--surface-strong)] p-4">
+                <p className="font-black">{bonusCopy.englishBonus}</p>
+                <a
+                  className="button-secondary w-full"
+                  download
+                  href={BONUS_LINKS.breakupGuideEn}
+                >
+                  {bonusCopy.downloadGuide}
+                </a>
+                <a
+                  className="button-secondary w-full"
+                  download
+                  href={BONUS_LINKS.journalTemplateEn}
+                >
+                  {bonusCopy.downloadJournal}
+                </a>
+              </div>
+            </div>
+          </section>
+        ) : null}
 
         <section className="notice">
           {copy.fictionNotice}
