@@ -188,13 +188,31 @@ function CreatePageContent() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const locale: CreateLocale = searchParams.get("lang") === "en" ? "en" : "ko";
+  const languageParam = searchParams.get("lang");
+  const [browserLocale, setBrowserLocale] = useState<CreateLocale>("ko");
+  const locale: CreateLocale =
+    languageParam === "en"
+      ? "en"
+      : languageParam === "ko"
+        ? "ko"
+        : browserLocale;
   const copy = CREATE_COPY[locale];
   const options = CREATE_OPTIONS[locale];
   const languageHref = `${pathname || "/create"}?lang=${locale === "en" ? "ko" : "en"}`;
   const [form, setForm] = useState<FormState>(initialState);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (languageParam === "en" || languageParam === "ko") {
+      return;
+    }
+
+    const language =
+      window.navigator.languages?.[0] ?? window.navigator.language ?? "ko";
+
+    setBrowserLocale(language.toLowerCase().startsWith("ko") ? "ko" : "en");
+  }, [languageParam]);
 
   useEffect(() => {
     setForm((current) => ({
