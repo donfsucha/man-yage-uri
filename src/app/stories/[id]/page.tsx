@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChapterReader } from "./chapter-reader";
+import { EventTracker } from "@/components/event-tracker";
 import { BONUS_LINKS, BONUS_OFFER_COPY } from "@/lib/bonus/offer";
 import { getStory } from "@/lib/story/persistence";
 import {
@@ -77,6 +78,13 @@ export default async function StoryPage({ params, searchParams }: StoryPageProps
 
   return (
     <main className="page-shell">
+      {isCompleted ? (
+        <EventTracker
+          eventName="story_completed_view"
+          metadata={{ locale }}
+          storyId={id}
+        />
+      ) : null}
       <article className="reader-frame grid gap-6 pt-4">
         <header className="grid gap-3">
           <div className="flex items-center justify-between gap-3">

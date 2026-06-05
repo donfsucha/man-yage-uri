@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getRuntimeConfig } from "@/lib/config/runtime";
-import { completeMockPaidStory } from "@/lib/story/persistence";
+import {
+  completeMockPaidStory,
+  recordAnalyticsEventSafely
+} from "@/lib/story/persistence";
 
 const MockConfirmRequestSchema = z.object({
   storyId: z.string().uuid()
@@ -38,11 +41,23 @@ export async function POST(request: Request) {
   const completed = await completeMockPaidStory(parsed.data.storyId);
 
   if (!completed) {
+    await recordAnalyticsEventSafely({
+      eventName: "payment_failed",
+      storyId: parsed.data.storyId,
+      metadata: { provider: "mock", reason: "complete_failed" }
+    });
+
     return NextResponse.json(
       { error: "결제 준비 또는 완결 회차 생성에 실패했습니다." },
       { status: 404 }
     );
   }
+
+  await recordAnalyticsEventSafely({
+    eventName: "payment_success",
+    storyId: completed.id,
+    metadata: { provider: "mock" }
+  });
 
   return NextResponse.json({
     storyId: completed.id,

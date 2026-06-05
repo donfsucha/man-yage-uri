@@ -1,4 +1,5 @@
 import { pdfResponse } from "@/lib/bonus/pdf";
+import { recordAnalyticsEventSafely } from "@/lib/story/persistence";
 
 const BREAKUP_GUIDES = {
   ko: {
@@ -46,8 +47,14 @@ function getLocale(request: Request) {
   return new URL(request.url).searchParams.get("lang") === "ko" ? "ko" : "en";
 }
 
-export function GET(request: Request) {
-  const guide = BREAKUP_GUIDES[getLocale(request)];
+export async function GET(request: Request) {
+  const locale = getLocale(request);
+  const guide = BREAKUP_GUIDES[locale];
+
+  await recordAnalyticsEventSafely({
+    eventName: "bonus_download",
+    metadata: { bonus: "breakup_guide", locale }
+  });
 
   return pdfResponse(guide.filename, guide.title, guide.lines);
 }

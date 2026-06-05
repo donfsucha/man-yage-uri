@@ -215,6 +215,10 @@ function CreatePageContent() {
   }, [languageParam]);
 
   useEffect(() => {
+    void trackEvent({ eventName: "create_page_view", metadata: { locale } });
+  }, [locale]);
+
+  useEffect(() => {
     setForm((current) => ({
       ...current,
       breakupMoment: options.breakupMoments.includes(current.breakupMoment)
@@ -238,6 +242,10 @@ function CreatePageContent() {
 
     if (localIssue) {
       setError(localIssue.message);
+      void trackEvent({
+        eventName: "story_validation_error",
+        metadata: { fieldId: localIssue.fieldId, locale, source: "client" }
+      });
       document.getElementById(localIssue.fieldId)?.focus();
       return;
     }
@@ -256,6 +264,14 @@ function CreatePageContent() {
       const result = await response.json();
 
       if (!response.ok) {
+        void trackEvent({
+          eventName: "preview_failed",
+          metadata: {
+            hasIssues: Boolean(result.issues),
+            locale,
+            status: response.status
+          }
+        });
         setError(
           result.issues
             ? formatStoryInputIssues(result.issues, locale)
@@ -275,6 +291,10 @@ function CreatePageContent() {
           : `/stories/${result.storyId}/preview`
       );
     } catch {
+      void trackEvent({
+        eventName: "preview_failed",
+        metadata: { locale, reason: "network" }
+      });
       setError(copy.networkError);
     } finally {
       setIsSubmitting(false);

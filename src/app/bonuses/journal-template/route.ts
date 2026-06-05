@@ -1,4 +1,5 @@
 import { pdfResponse } from "@/lib/bonus/pdf";
+import { recordAnalyticsEventSafely } from "@/lib/story/persistence";
 
 const JOURNAL_TEMPLATES = {
   ko: {
@@ -57,8 +58,14 @@ function getLocale(request: Request) {
   return new URL(request.url).searchParams.get("lang") === "ko" ? "ko" : "en";
 }
 
-export function GET(request: Request) {
-  const template = JOURNAL_TEMPLATES[getLocale(request)];
+export async function GET(request: Request) {
+  const locale = getLocale(request);
+  const template = JOURNAL_TEMPLATES[locale];
+
+  await recordAnalyticsEventSafely({
+    eventName: "bonus_download",
+    metadata: { bonus: "journal_template", locale }
+  });
 
   return pdfResponse(template.filename, template.title, template.lines);
 }

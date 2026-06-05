@@ -7,7 +7,8 @@ import {
 } from "@/lib/payment/paypal";
 import {
   completeMockPaidStory,
-  completePreparedPaidStory
+  completePreparedPaidStory,
+  recordAnalyticsEventSafely
 } from "@/lib/story/persistence";
 
 const CapturePayPalOrderRequestSchema = z.object({
@@ -37,11 +38,23 @@ export async function POST(request: Request) {
       const completed = await completeMockPaidStory(parsed.data.storyId);
 
       if (!completed) {
+        await recordAnalyticsEventSafely({
+          eventName: "payment_failed",
+          storyId: parsed.data.storyId,
+          metadata: { mock: true, provider: "paypal", reason: "mock_complete_failed" }
+        });
+
         return NextResponse.json(
           { error: "PayPal mock payment could not be completed." },
           { status: 404 }
         );
       }
+
+      await recordAnalyticsEventSafely({
+        eventName: "payment_success",
+        storyId: completed.id,
+        metadata: { mock: true, provider: "paypal" }
+      });
 
       return NextResponse.json({
         storyId: completed.id,
@@ -60,6 +73,17 @@ export async function POST(request: Request) {
         currency: config.paypalCurrency
       })
     ) {
+      await recordAnalyticsEventSafely({
+        eventName: "payment_failed",
+        storyId: parsed.data.storyId,
+        metadata: {
+          orderId: parsed.data.orderId,
+          payPalStatus: capture.status,
+          provider: "paypal",
+          reason: "capture_mismatch"
+        }
+      });
+
       return NextResponse.json(
         {
           error: "PayPal payment details do not match this story.",
@@ -75,11 +99,30 @@ export async function POST(request: Request) {
     );
 
     if (!completed) {
+      await recordAnalyticsEventSafely({
+        eventName: "payment_failed",
+        storyId: parsed.data.storyId,
+        metadata: {
+          orderId: parsed.data.orderId,
+          provider: "paypal",
+          reason: "paid_story_generation_failed"
+        }
+      });
+
       return NextResponse.json(
         { error: "Paid chapters could not be generated." },
         { status: 404 }
       );
     }
+
+    await recordAnalyticsEventSafely({
+      eventName: "payment_success",
+      storyId: completed.id,
+      metadata: {
+        orderId: capture.orderId,
+        provider: "paypal"
+      }
+    });
 
     return NextResponse.json({
       storyId: completed.id,
@@ -88,6 +131,16 @@ export async function POST(request: Request) {
       payPalOrderId: capture.orderId
     });
   } catch (error) {
+    await recordAnalyticsEventSafely({
+      eventName: "payment_failed",
+      storyId: parsed.data.storyId,
+      metadata: {
+        message: error instanceof Error ? error.message : "PayPal capture failed.",
+        orderId: parsed.data.orderId,
+        provider: "paypal"
+      }
+    });
+
     return NextResponse.json(
       {
         error:

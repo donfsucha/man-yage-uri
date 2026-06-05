@@ -82,10 +82,22 @@ export const PaymentStatusSchema = z.enum([
 ]);
 
 export const AnalyticsEventNameSchema = z.enum([
+  "create_page_view",
   "landing_view",
   "story_start",
+  "story_validation_error",
   "preview_generated",
-  "checkout_click"
+  "preview_failed",
+  "choice_selected",
+  "checkout_view",
+  "checkout_click",
+  "payment_started",
+  "payment_success",
+  "payment_failed",
+  "payment_canceled",
+  "story_completed_view",
+  "bonus_download",
+  "language_changed"
 ]);
 
 export const PreviewStorySchema = z

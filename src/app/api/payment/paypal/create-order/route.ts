@@ -2,7 +2,11 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getRuntimeConfig } from "@/lib/config/runtime";
 import { createPayPalOrder, toPaymentMinorUnits } from "@/lib/payment/paypal";
-import { getStory, prepareExternalPayment } from "@/lib/story/persistence";
+import {
+  getStory,
+  prepareExternalPayment,
+  recordAnalyticsEventSafely
+} from "@/lib/story/persistence";
 
 const CreatePayPalOrderRequestSchema = z.object({
   storyId: z.string().uuid()
@@ -35,6 +39,12 @@ export async function POST(request: Request) {
   const config = getRuntimeConfig();
 
   if (config.mockPayPal) {
+    await recordAnalyticsEventSafely({
+      eventName: "payment_started",
+      storyId: story.id,
+      metadata: { provider: "paypal", mock: true }
+    });
+
     return NextResponse.json({
       orderId: `mock_paypal_${story.id}`,
       status: "CREATED",
@@ -56,14 +66,39 @@ export async function POST(request: Request) {
     );
 
     if (!payment) {
+      await recordAnalyticsEventSafely({
+        eventName: "payment_failed",
+        storyId: story.id,
+        metadata: { provider: "paypal", reason: "prepare_failed" }
+      });
+
       return NextResponse.json(
         { error: "Payment could not be prepared." },
         { status: 404 }
       );
     }
 
+    await recordAnalyticsEventSafely({
+      eventName: "payment_started",
+      storyId: story.id,
+      metadata: {
+        orderId: order.orderId,
+        provider: "paypal"
+      }
+    });
+
     return NextResponse.json(order);
   } catch (error) {
+    await recordAnalyticsEventSafely({
+      eventName: "payment_failed",
+      storyId: story.id,
+      metadata: {
+        message:
+          error instanceof Error ? error.message : "PayPal order creation failed.",
+        provider: "paypal"
+      }
+    });
+
     return NextResponse.json(
       {
         error:

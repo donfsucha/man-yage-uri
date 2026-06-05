@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { ChoiceIdSchema } from "@/lib/story/schema";
-import { chooseStoryDirection } from "@/lib/story/persistence";
+import {
+  chooseStoryDirection,
+  recordAnalyticsEventSafely
+} from "@/lib/story/persistence";
 
 const SelectChoiceRequestSchema = z.object({
   storyId: z.string().uuid(),
@@ -58,6 +61,15 @@ export async function POST(request: Request) {
       { status: 404 }
     );
   }
+
+  await recordAnalyticsEventSafely({
+    eventName: "choice_selected",
+    storyId: story.id,
+    metadata: {
+      choiceId: story.selectedChoiceId,
+      hasCustomChoice: Boolean(parsed.data.customChoiceText)
+    }
+  });
 
   return NextResponse.json({
     storyId: story.id,

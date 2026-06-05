@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PaymentActions } from "./payment-actions";
+import { EventTracker } from "@/components/event-tracker";
 import { BONUS_OFFER_COPY } from "@/lib/bonus/offer";
 import { getRuntimeConfig } from "@/lib/config/runtime";
 import { getChoicePurchaseHint } from "@/lib/story/choice-hints";
@@ -141,6 +142,11 @@ export default async function CheckoutPage({
 
   return (
     <main className="page-shell">
+      <EventTracker
+        eventName="checkout_view"
+        metadata={{ locale }}
+        storyId={storyId}
+      />
       <section className="mobile-frame grid gap-6 pt-4">
         <div className="flex justify-end">
           <Link className="text-sm font-bold text-[color:var(--accent)]" href={languageHref}>

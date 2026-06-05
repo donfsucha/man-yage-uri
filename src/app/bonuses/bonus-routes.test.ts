@@ -1,6 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { GET as getBreakupGuide } from "./breakup-guide/route";
 import { GET as getJournalTemplate } from "./journal-template/route";
+
+vi.mock("@/lib/story/persistence", () => ({
+  recordAnalyticsEventSafely: vi.fn()
+}));
 
 async function readPdfHeader(response: Response) {
   const bytes = new Uint8Array(await response.arrayBuffer());
@@ -9,10 +13,10 @@ async function readPdfHeader(response: Response) {
 
 describe("bonus PDF routes", () => {
   it("serves Korean and English breakup guide PDFs", async () => {
-    const korean = getBreakupGuide(
+    const korean = await getBreakupGuide(
       new Request("https://ifwe.cnanfc.com/bonuses/breakup-guide?lang=ko")
     );
-    const english = getBreakupGuide(
+    const english = await getBreakupGuide(
       new Request("https://ifwe.cnanfc.com/bonuses/breakup-guide?lang=en")
     );
 
@@ -27,10 +31,10 @@ describe("bonus PDF routes", () => {
   });
 
   it("serves Korean and English journal template PDFs", async () => {
-    const korean = getJournalTemplate(
+    const korean = await getJournalTemplate(
       new Request("https://ifwe.cnanfc.com/bonuses/journal-template?lang=ko")
     );
-    const english = getJournalTemplate(
+    const english = await getJournalTemplate(
       new Request("https://ifwe.cnanfc.com/bonuses/journal-template?lang=en")
     );
 

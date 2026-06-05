@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { moderateStoryInput } from "@/lib/story/moderation";
 import { StoryInputSchema } from "@/lib/story/schema";
-import { createPreview } from "@/lib/story/persistence";
+import {
+  createPreview,
+  recordAnalyticsEventSafely
+} from "@/lib/story/persistence";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +23,11 @@ export async function POST(request: Request) {
   const parsedInput = StoryInputSchema.safeParse(body);
 
   if (!parsedInput.success) {
+    await recordAnalyticsEventSafely({
+      eventName: "story_validation_error",
+      metadata: { source: "server" }
+    });
+
     return NextResponse.json(
       {
         error: "입력값을 확인해 주세요.",
@@ -32,6 +40,14 @@ export async function POST(request: Request) {
   const moderation = moderateStoryInput(parsedInput.data);
 
   if (!moderation.allowed) {
+    await recordAnalyticsEventSafely({
+      eventName: "story_validation_error",
+      metadata: {
+        categories: moderation.categories,
+        source: "moderation"
+      }
+    });
+
     return NextResponse.json(
       {
         error:
@@ -52,6 +68,13 @@ export async function POST(request: Request) {
       story: stored.story
     });
   } catch (error) {
+    await recordAnalyticsEventSafely({
+      eventName: "preview_failed",
+      metadata: {
+        message: error instanceof Error ? error.message : "unknown"
+      }
+    });
+
     return NextResponse.json(
       {
         error:

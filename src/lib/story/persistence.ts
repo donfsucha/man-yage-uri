@@ -154,6 +154,27 @@ export async function recordAnalyticsEvent({
     : recordStoryEvent({ eventName, storyId, metadata });
 }
 
+export async function recordAnalyticsEventSafely({
+  eventName,
+  storyId = null,
+  metadata = {}
+}: {
+  eventName: AnalyticsEventName;
+  storyId?: string | null;
+  metadata?: Record<string, unknown>;
+}) {
+  try {
+    return await recordAnalyticsEvent({ eventName, storyId, metadata });
+  } catch (error) {
+    console.warn(
+      "Analytics event could not be recorded.",
+      error instanceof Error ? error.message : error
+    );
+
+    return null;
+  }
+}
+
 export async function getAnalyticsEvents(storyId?: string) {
   return shouldUseSupabase()
     ? listAnalyticsEventsFromSupabase(storyId)
