@@ -49,4 +49,16 @@ describe("proxy admin protection", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("x-middleware-next")).toBe("1");
   });
+
+  it("keeps the default admin username available even if ADMIN_USERNAME differs", () => {
+    process.env.ADMIN_USERNAME = "owner";
+    process.env.ADMIN_PASSWORD = "secret-password";
+
+    const response = proxy(
+      makeRequest("/admin", basicAuth("admin", "secret-password"))
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-middleware-next")).toBe("1");
+  });
 });

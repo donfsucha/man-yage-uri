@@ -17,8 +17,13 @@ function unauthorizedResponse() {
 }
 
 function isValidAdminRequest(request: NextRequest) {
-  const adminPassword = process.env.ADMIN_PASSWORD;
-  const adminUsername = process.env.ADMIN_USERNAME || "admin";
+  const adminPassword = process.env.ADMIN_PASSWORD?.trim();
+  const configuredAdminUsername = process.env.ADMIN_USERNAME?.trim();
+  const allowedUsernames = new Set(
+    ["admin", configuredAdminUsername].filter(
+      (username): username is string => Boolean(username)
+    )
+  );
 
   if (!adminPassword) {
     return new NextResponse("ADMIN_PASSWORD is not configured.", { status: 503 });
@@ -33,10 +38,10 @@ function isValidAdminRequest(request: NextRequest) {
   try {
     const decoded = atob(authHeader.slice("Basic ".length));
     const separatorIndex = decoded.indexOf(":");
-    const username = decoded.slice(0, separatorIndex);
-    const password = decoded.slice(separatorIndex + 1);
+    const username = decoded.slice(0, separatorIndex).trim();
+    const password = decoded.slice(separatorIndex + 1).trim();
 
-    if (username === adminUsername && password === adminPassword) {
+    if (allowedUsernames.has(username) && password === adminPassword) {
       return null;
     }
   } catch {
