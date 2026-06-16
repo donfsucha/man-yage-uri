@@ -1,68 +1,57 @@
-"use client";
+const youtubeVideoId = "MapLLfsGIN8";
+const playStoreUrl =
+  "https://play.google.com/store/apps/details?id=com.cnanfc.xcanplayer&pcampaignid=web_share";
 
-import { useEffect, useMemo, useState } from "react";
-
-const youtubeUrl = "https://www.youtube.com/watch?v=MapLLfsGIN8";
-
-function getIntentUrl() {
-  const fallback = encodeURIComponent(youtubeUrl);
-
-  return `intent://bible-start#Intent;scheme=xcanplayer;package=com.cnanfc.xcanplayer.demo;S.browser_fallback_url=${fallback};end`;
-}
-
-export default function BibleStartPage() {
-  const [status, setStatus] = useState("앱 실행을 준비하고 있습니다.");
-  const intentUrl = useMemo(() => getIntentUrl(), []);
-
-  const openApp = () => {
-    setStatus("앱을 여는 중입니다. 앱이 없으면 유튜브로 이동합니다.");
-    window.location.href = intentUrl;
-  };
-
-  useEffect(() => {
-    const isAndroid = /Android/i.test(window.navigator.userAgent);
-
-    if (!isAndroid) {
-      setStatus("PC에서는 앱 자동실행이 되지 않습니다. 휴대폰에서 NFC로 테스트해 주세요.");
-      return;
-    }
-
-    const timer = window.setTimeout(openApp, 500);
-    return () => window.clearTimeout(timer);
-  }, [intentUrl]);
-
+export default function BibleWebStartPage() {
   return (
-    <main className="min-h-screen bg-[#0b1220] px-5 py-8 text-white">
-      <section className="mx-auto flex min-h-[calc(100vh-64px)] w-full max-w-[520px] flex-col justify-center gap-5">
-        <div className="text-sm font-extrabold text-[#55e6c1]">XC-220 성경통독 거치대</div>
-        <h1 className="text-[34px] font-black leading-tight tracking-normal">
-          거치하면
-          <br />
-          성경통독이 바로 시작됩니다
-        </h1>
-        <p className="text-base leading-7 text-slate-300">
-          앱이 설치되어 있으면 XCAN PLAYER가 열리고, 앱이 없으면 오늘의 성경통독
-          영상으로 연결됩니다.
-        </p>
+    <main className="min-h-screen bg-[#07111f] text-white">
+      <section className="mx-auto flex min-h-screen w-full max-w-[520px] flex-col">
+        <div className="px-5 pb-4 pt-7">
+          <p className="text-sm font-extrabold text-emerald-300">XC-220 성경통독 거치대</p>
+          <h1 className="mt-2 text-[30px] font-black leading-tight tracking-normal">
+            거치하면
+            <br />
+            성경통독 영상이 바로 열립니다
+          </h1>
+          <p className="mt-3 text-[15px] leading-6 text-slate-300">
+            앱 설치 전에도 웹브라우저에서 바로 시청할 수 있습니다. 이어보기와 기록
+            관리는 앱 설치 후 사용할 수 있습니다.
+          </p>
+        </div>
 
-        <div className="mt-3 rounded-[10px] border border-slate-500/30 bg-slate-900/90 p-5">
-          <div className="mb-4 font-extrabold text-blue-300">{status}</div>
-          <button
-            className="block w-full rounded-lg bg-emerald-500 px-5 py-4 text-center text-[17px] font-black text-white"
-            type="button"
-            onClick={openApp}
-          >
-            앱으로 성경통독 시작
-          </button>
+        <div className="px-4">
+          <div className="overflow-hidden rounded-lg border border-slate-700 bg-black shadow-2xl">
+            <div className="relative aspect-video w-full">
+              <iframe
+                className="absolute inset-0 h-full w-full"
+                src={`https://www.youtube.com/embed/${youtubeVideoId}?autoplay=1&playsinline=1&rel=0`}
+                title="CGN 성경통독 영상"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-3 px-5 py-5">
+          <div className="rounded-lg border border-emerald-400/25 bg-emerald-400/10 p-4">
+            <p className="text-sm font-bold text-emerald-200">앱을 설치하면 더 편합니다</p>
+            <p className="mt-1 text-sm leading-6 text-slate-300">
+              다음 거치부터 XCAN PLAYER로 바로 열고, 성경통독 루틴을 이어갈 수 있습니다.
+            </p>
+          </div>
+        </div>
+
+        <div className="sticky bottom-0 mt-auto border-t border-slate-800 bg-[#07111f]/95 px-5 py-4 backdrop-blur">
           <a
-            className="mt-3 block w-full rounded-lg bg-blue-700 px-5 py-4 text-center text-[17px] font-black text-white no-underline"
-            href={youtubeUrl}
+            className="flex w-full items-center justify-center gap-3 rounded-lg bg-emerald-500 px-5 py-4 text-center text-[17px] font-black text-white shadow-lg shadow-emerald-950/40 no-underline"
+            href={playStoreUrl}
           >
-            앱 없이 유튜브로 보기
+            <span aria-hidden="true">▶</span>
+            XCAN PLAYER 앱 다운로드
           </a>
-          <p className="mt-4 text-[13px] leading-6 text-slate-400">
-            내일 데모용 페이지입니다. 정식 앱 승인 후에는 내부 패키지명만 정식 앱으로
-            바꾸면 됩니다.
+          <p className="mt-3 text-center text-xs leading-5 text-slate-400">
+            앱이 이미 설치되어 있다면 첫 번째 거치대에서 자동 실행을 시연하세요.
           </p>
         </div>
       </section>
