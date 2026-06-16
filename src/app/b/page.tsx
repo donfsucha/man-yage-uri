@@ -29,13 +29,13 @@ export default function BibleWebStartPage() {
           </div>
         </div>
 
-        <div className="sticky bottom-0 mt-auto border-t border-slate-800 bg-black/95 px-3 py-3 backdrop-blur">
+        <div className="fixed bottom-4 right-4 z-20 w-[168px] sm:bottom-6 sm:right-6 sm:w-[190px]">
           <a
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-500 px-4 py-3 text-center text-base font-black text-white shadow-lg shadow-emerald-950/40 no-underline"
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-500 px-3 py-3 text-center text-sm font-black text-white shadow-xl shadow-black/40 no-underline sm:text-base"
             href={playStoreUrl}
           >
             <span aria-hidden="true">▶</span>
-            XCAN PLAYER 앱 다운로드
+            앱 다운로드
           </a>
         </div>
       </section>
