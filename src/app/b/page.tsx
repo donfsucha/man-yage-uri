@@ -62,11 +62,11 @@ function loadSavedProgress(): SavedProgress {
     if (!saved) return { index: genesisStartIndex, seconds: 0, updatedAt: "" };
 
     const parsed = JSON.parse(saved) as Partial<SavedProgress>;
+    const parsedIndex = Number(parsed.index);
+    const safeIndex = Number.isFinite(parsedIndex) ? parsedIndex : genesisStartIndex;
+
     return {
-      index: Math.min(
-        genesisStartIndex,
-        Math.max(0, Number(parsed.index) || genesisStartIndex),
-      ),
+      index: Math.min(genesisStartIndex, Math.max(0, safeIndex)),
       seconds: Math.max(0, Number(parsed.seconds) || 0),
       updatedAt: String(parsed.updatedAt || ""),
     };
