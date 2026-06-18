@@ -2,9 +2,25 @@
 
 import { useEffect, useRef, useState } from "react";
 
-const playlistId = "PLjj_uvKdTemCV3tBQ3iHCe5O-HPXsjtjn";
-const genesisStartIndex = 364;
-const progressKey = "xcan:korean-bible-reading-progress:v2";
+const koreanBibleVideos = [
+  {
+    day: 1,
+    videoId: "3-NAx-ECs70",
+    title: "창세기 1~4장",
+  },
+  {
+    day: 2,
+    videoId: "-a-q4tBYVYs",
+    title: "창세기 5~9장",
+  },
+  {
+    day: 3,
+    videoId: "ek6UR53q_sU",
+    title: "창세기 10~13장",
+  },
+];
+
+const progressKey = "xcan:korean-bible-reading-progress:v3";
 const playStoreUrl =
   "https://play.google.com/store/apps/details?id=com.cnanfc.xcanplayer&pcampaignid=web_share";
 
@@ -16,14 +32,11 @@ type SavedProgress = {
 
 type YouTubePlayer = {
   playVideo: () => void;
-  loadPlaylist: (options: {
-    listType: "playlist";
-    list: string;
-    index: number;
+  loadVideoById: (options: {
+    videoId: string;
     startSeconds?: number;
   }) => void;
   getCurrentTime: () => number;
-  getPlaylistIndex: () => number;
   getPlayerState: () => number;
   destroy?: () => void;
 };
@@ -34,6 +47,7 @@ declare global {
       Player: new (
         elementId: string,
         options: {
+          videoId?: string;
           width: string;
           height: string;
           playerVars: Record<string, string | number>;
@@ -54,33 +68,29 @@ declare global {
 
 function loadSavedProgress(): SavedProgress {
   if (typeof window === "undefined") {
-    return { index: genesisStartIndex, seconds: 0, updatedAt: "" };
+    return { index: 0, seconds: 0, updatedAt: "" };
   }
 
   try {
     const saved = window.localStorage.getItem(progressKey);
-    if (!saved) return { index: genesisStartIndex, seconds: 0, updatedAt: "" };
+    if (!saved) return { index: 0, seconds: 0, updatedAt: "" };
 
     const parsed = JSON.parse(saved) as Partial<SavedProgress>;
     const parsedIndex = Number(parsed.index);
-    const safeIndex = Number.isFinite(parsedIndex) ? parsedIndex : genesisStartIndex;
+    const maxIndex = koreanBibleVideos.length - 1;
+    const safeIndex = Number.isFinite(parsedIndex) ? parsedIndex : 0;
 
     return {
-      index: Math.min(genesisStartIndex, Math.max(0, safeIndex)),
+      index: Math.min(maxIndex, Math.max(0, safeIndex)),
       seconds: Math.max(0, Number(parsed.seconds) || 0),
       updatedAt: String(parsed.updatedAt || ""),
     };
   } catch {
-    return { index: genesisStartIndex, seconds: 0, updatedAt: "" };
+    return { index: 0, seconds: 0, updatedAt: "" };
   }
 }
 
-function getDayNumber(index: number) {
-  return Math.max(1, genesisStartIndex - index + 1);
-}
-
-function saveProgress(player: YouTubePlayer) {
-  const index = Math.max(0, player.getPlaylistIndex?.() ?? 0);
+function saveProgress(player: YouTubePlayer, index: number) {
   const seconds = Math.max(0, Math.floor(player.getCurrentTime?.() ?? 0));
 
   window.localStorage.setItem(
@@ -97,7 +107,7 @@ export default function BibleWebStartPage() {
   const playerRef = useRef<YouTubePlayer | null>(null);
   const saveTimerRef = useRef<number | null>(null);
   const [savedProgress, setSavedProgress] = useState<SavedProgress>({
-    index: genesisStartIndex,
+    index: 0,
     seconds: 0,
     updatedAt: "",
   });
@@ -106,10 +116,14 @@ export default function BibleWebStartPage() {
 
   useEffect(() => {
     const progress = loadSavedProgress();
+    let activeIndex = progress.index;
     window.setTimeout(() => setSavedProgress(progress), 0);
 
     window.onYouTubeIframeAPIReady = () => {
+      const currentVideo = koreanBibleVideos[activeIndex] ?? koreanBibleVideos[0];
+
       playerRef.current = new window.YT!.Player("youtube-player", {
+        videoId: currentVideo.videoId,
         width: "100%",
         height: "100%",
         playerVars: {
@@ -117,17 +131,12 @@ export default function BibleWebStartPage() {
           controls: 1,
           playsinline: 1,
           rel: 0,
-          listType: "playlist",
-          list: playlistId,
-          index: progress.index,
           start: Math.floor(progress.seconds),
         },
         events: {
           onReady: (event) => {
-            event.target.loadPlaylist({
-              listType: "playlist",
-              list: playlistId,
-              index: progress.index,
+            event.target.loadVideoById({
+              videoId: currentVideo.videoId,
               startSeconds: progress.seconds,
             });
             setIsReady(true);
@@ -135,11 +144,12 @@ export default function BibleWebStartPage() {
           onStateChange: (event) => {
             if (event.data === window.YT?.PlayerState.PLAYING) {
               setIsPlaying(true);
-              saveProgress(event.target);
+              saveProgress(event.target, activeIndex);
             }
 
             if (event.data === window.YT?.PlayerState.ENDED) {
-              const nextIndex = Math.max(0, event.target.getPlaylistIndex() - 1);
+              const nextIndex = Math.min(activeIndex + 1, koreanBibleVideos.length - 1);
+              activeIndex = nextIndex;
               window.localStorage.setItem(
                 progressKey,
                 JSON.stringify({
@@ -148,10 +158,9 @@ export default function BibleWebStartPage() {
                   updatedAt: new Date().toISOString(),
                 }),
               );
-              event.target.loadPlaylist({
-                listType: "playlist",
-                list: playlistId,
-                index: nextIndex,
+              setSavedProgress({ index: nextIndex, seconds: 0, updatedAt: new Date().toISOString() });
+              event.target.loadVideoById({
+                videoId: koreanBibleVideos[nextIndex].videoId,
                 startSeconds: 0,
               });
             }
@@ -175,7 +184,7 @@ export default function BibleWebStartPage() {
     saveTimerRef.current = window.setInterval(() => {
       if (!playerRef.current) return;
       if (playerRef.current.getPlayerState?.() === window.YT?.PlayerState.PLAYING) {
-        saveProgress(playerRef.current);
+        saveProgress(playerRef.current, activeIndex);
       }
     }, 5000);
 
@@ -186,10 +195,11 @@ export default function BibleWebStartPage() {
     };
   }, []);
 
+  const currentVideo = koreanBibleVideos[savedProgress.index] ?? koreanBibleVideos[0];
   const startLabel =
-    savedProgress.index !== genesisStartIndex || savedProgress.seconds > 0
-      ? `${getDayNumber(savedProgress.index)}일차 ${Math.floor(savedProgress.seconds / 60)}분부터 이어보기`
-      : "1일차부터 성경통독 시작";
+    savedProgress.index > 0 || savedProgress.seconds > 0
+      ? `${currentVideo.day}일차 ${Math.floor(savedProgress.seconds / 60)}분부터 이어보기`
+      : "1일차 창세기부터 성경통독 시작";
 
   return (
     <main className="min-h-screen bg-black text-white">
@@ -237,13 +247,11 @@ export default function BibleWebStartPage() {
             type="button"
             onClick={() => {
               window.localStorage.removeItem(progressKey);
-              playerRef.current?.loadPlaylist({
-                listType: "playlist",
-                list: playlistId,
-                index: genesisStartIndex,
+              playerRef.current?.loadVideoById({
+                videoId: koreanBibleVideos[0].videoId,
                 startSeconds: 0,
               });
-              setSavedProgress({ index: genesisStartIndex, seconds: 0, updatedAt: "" });
+              setSavedProgress({ index: 0, seconds: 0, updatedAt: "" });
               setIsPlaying(true);
             }}
           >
