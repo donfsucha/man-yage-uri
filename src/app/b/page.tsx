@@ -97,7 +97,7 @@ export default function BibleWebStartPage() {
   const playerRef = useRef<YouTubePlayer | null>(null);
   const saveTimerRef = useRef<number | null>(null);
   const [savedProgress, setSavedProgress] = useState<SavedProgress>({
-    index: 0,
+    index: genesisStartIndex,
     seconds: 0,
     updatedAt: "",
   });
