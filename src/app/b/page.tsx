@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 
 const playlistId = "PLjj_uvKdTemCV3tBQ3iHCe5O-HPXsjtjn";
-const progressKey = "xcan:korean-bible-reading-progress";
+const genesisStartIndex = 364;
+const progressKey = "xcan:korean-bible-reading-progress:v2";
 const playStoreUrl =
   "https://play.google.com/store/apps/details?id=com.cnanfc.xcanplayer&pcampaignid=web_share";
 
@@ -53,22 +54,29 @@ declare global {
 
 function loadSavedProgress(): SavedProgress {
   if (typeof window === "undefined") {
-    return { index: 0, seconds: 0, updatedAt: "" };
+    return { index: genesisStartIndex, seconds: 0, updatedAt: "" };
   }
 
   try {
     const saved = window.localStorage.getItem(progressKey);
-    if (!saved) return { index: 0, seconds: 0, updatedAt: "" };
+    if (!saved) return { index: genesisStartIndex, seconds: 0, updatedAt: "" };
 
     const parsed = JSON.parse(saved) as Partial<SavedProgress>;
     return {
-      index: Math.max(0, Number(parsed.index) || 0),
+      index: Math.min(
+        genesisStartIndex,
+        Math.max(0, Number(parsed.index) || genesisStartIndex),
+      ),
       seconds: Math.max(0, Number(parsed.seconds) || 0),
       updatedAt: String(parsed.updatedAt || ""),
     };
   } catch {
-    return { index: 0, seconds: 0, updatedAt: "" };
+    return { index: genesisStartIndex, seconds: 0, updatedAt: "" };
   }
+}
+
+function getDayNumber(index: number) {
+  return Math.max(1, genesisStartIndex - index + 1);
 }
 
 function saveProgress(player: YouTubePlayer) {
@@ -131,7 +139,7 @@ export default function BibleWebStartPage() {
             }
 
             if (event.data === window.YT?.PlayerState.ENDED) {
-              const nextIndex = Math.max(0, event.target.getPlaylistIndex() + 1);
+              const nextIndex = Math.max(0, event.target.getPlaylistIndex() - 1);
               window.localStorage.setItem(
                 progressKey,
                 JSON.stringify({
@@ -140,6 +148,12 @@ export default function BibleWebStartPage() {
                   updatedAt: new Date().toISOString(),
                 }),
               );
+              event.target.loadPlaylist({
+                listType: "playlist",
+                list: playlistId,
+                index: nextIndex,
+                startSeconds: 0,
+              });
             }
           },
         },
@@ -173,8 +187,8 @@ export default function BibleWebStartPage() {
   }, []);
 
   const startLabel =
-    savedProgress.index > 0 || savedProgress.seconds > 0
-      ? `${savedProgress.index + 1}번째 영상 ${Math.floor(savedProgress.seconds / 60)}분부터 이어보기`
+    savedProgress.index !== genesisStartIndex || savedProgress.seconds > 0
+      ? `${getDayNumber(savedProgress.index)}일차 ${Math.floor(savedProgress.seconds / 60)}분부터 이어보기`
       : "1일차부터 성경통독 시작";
 
   return (
@@ -226,10 +240,10 @@ export default function BibleWebStartPage() {
               playerRef.current?.loadPlaylist({
                 listType: "playlist",
                 list: playlistId,
-                index: 0,
+                index: genesisStartIndex,
                 startSeconds: 0,
               });
-              setSavedProgress({ index: 0, seconds: 0, updatedAt: "" });
+              setSavedProgress({ index: genesisStartIndex, seconds: 0, updatedAt: "" });
               setIsPlaying(true);
             }}
           >
