@@ -1,11 +1,7 @@
 ﻿"use client";
 
 import { useEffect, useRef, useState } from "react";
-import {
-  koreanBibleProgressKey,
-  koreanBibleVideos,
-  legacyKoreanBibleProgressKey,
-} from "@/lib/xcan/bible-reading";
+import { englishBibleProgressKey, englishBibleVideos } from "@/lib/xcan/bible-reading";
 
 const playStoreUrl =
   "https://play.google.com/store/apps/details?id=com.cnanfc.xcanplayer&pcampaignid=web_share";
@@ -52,30 +48,18 @@ declare global {
   }
 }
 
-function readSavedProgress() {
-  const saved =
-    window.localStorage.getItem(koreanBibleProgressKey) ??
-    window.localStorage.getItem(legacyKoreanBibleProgressKey);
-
-  if (saved && !window.localStorage.getItem(koreanBibleProgressKey)) {
-    window.localStorage.setItem(koreanBibleProgressKey, saved);
-  }
-
-  return saved;
-}
-
 function loadSavedProgress(): SavedProgress {
   if (typeof window === "undefined") {
     return { index: 0, seconds: 0, updatedAt: "" };
   }
 
   try {
-    const saved = readSavedProgress();
+    const saved = window.localStorage.getItem(englishBibleProgressKey);
     if (!saved) return { index: 0, seconds: 0, updatedAt: "" };
 
     const parsed = JSON.parse(saved) as Partial<SavedProgress>;
     const parsedIndex = Number(parsed.index);
-    const maxIndex = koreanBibleVideos.length - 1;
+    const maxIndex = englishBibleVideos.length - 1;
     const safeIndex = Number.isFinite(parsedIndex) ? parsedIndex : 0;
 
     return {
@@ -92,17 +76,16 @@ function saveProgress(player: YouTubePlayer, index: number) {
   const seconds = Math.max(0, Math.floor(player.getCurrentTime?.() ?? 0));
 
   window.localStorage.setItem(
-    koreanBibleProgressKey,
+    englishBibleProgressKey,
     JSON.stringify({
       index,
       seconds,
       updatedAt: new Date().toISOString(),
     }),
   );
-  window.localStorage.removeItem(legacyKoreanBibleProgressKey);
 }
 
-export default function BibleWebStartPage() {
+export default function EnglishBibleWebStartPage() {
   const playerRef = useRef<YouTubePlayer | null>(null);
   const saveTimerRef = useRef<number | null>(null);
   const [savedProgress, setSavedProgress] = useState<SavedProgress>({
@@ -119,7 +102,7 @@ export default function BibleWebStartPage() {
     window.setTimeout(() => setSavedProgress(progress), 0);
 
     window.onYouTubeIframeAPIReady = () => {
-      const currentVideo = koreanBibleVideos[activeIndex] ?? koreanBibleVideos[0];
+      const currentVideo = englishBibleVideos[activeIndex] ?? englishBibleVideos[0];
 
       playerRef.current = new window.YT!.Player("youtube-player", {
         videoId: currentVideo.videoId,
@@ -147,10 +130,10 @@ export default function BibleWebStartPage() {
             }
 
             if (event.data === window.YT?.PlayerState.ENDED) {
-              const nextIndex = Math.min(activeIndex + 1, koreanBibleVideos.length - 1);
+              const nextIndex = Math.min(activeIndex + 1, englishBibleVideos.length - 1);
               activeIndex = nextIndex;
               window.localStorage.setItem(
-                koreanBibleProgressKey,
+                englishBibleProgressKey,
                 JSON.stringify({
                   index: nextIndex,
                   seconds: 0,
@@ -159,7 +142,7 @@ export default function BibleWebStartPage() {
               );
               setSavedProgress({ index: nextIndex, seconds: 0, updatedAt: new Date().toISOString() });
               event.target.loadVideoById({
-                videoId: koreanBibleVideos[nextIndex].videoId,
+                videoId: englishBibleVideos[nextIndex].videoId,
                 startSeconds: 0,
               });
             }
@@ -194,23 +177,23 @@ export default function BibleWebStartPage() {
     };
   }, []);
 
-  const currentVideo = koreanBibleVideos[savedProgress.index] ?? koreanBibleVideos[0];
+  const currentVideo = englishBibleVideos[savedProgress.index] ?? englishBibleVideos[0];
   const startLabel =
     savedProgress.index > 0 || savedProgress.seconds > 0
-      ? `${currentVideo.day}일차 ${Math.floor(savedProgress.seconds / 60)}분부터 이어보기`
-      : "1일차 창세기부터 성경통독 시작";
+      ? `${currentVideo.book} ${Math.floor(savedProgress.seconds / 60)}분부터 이어보기`
+      : "Genesis부터 영어성경 시작";
 
   return (
     <main className="min-h-screen bg-black text-white">
       <section className="relative mx-auto flex min-h-screen w-full max-w-none flex-col overflow-hidden">
         <div className="pointer-events-none absolute left-3 top-3 z-10 rounded-md bg-black/65 px-3 py-2 backdrop-blur">
-          <p className="text-[11px] font-extrabold text-emerald-300 sm:text-xs">
+          <p className="text-[11px] font-extrabold text-sky-300 sm:text-xs">
             XC-220 성경통독 거치대
           </p>
           <h1 className="mt-0.5 text-base font-black leading-tight tracking-normal sm:text-lg">
-            한글성경통독 이어보기
+            영어성경통독 이어보기
           </h1>
-          <p className="mt-1 max-w-[240px] text-[11px] font-bold text-white/80 sm:text-xs">
+          <p className="mt-1 max-w-[280px] text-[11px] font-bold text-white/80 sm:text-xs">
             {startLabel}
           </p>
         </div>
@@ -228,7 +211,7 @@ export default function BibleWebStartPage() {
                     setIsPlaying(true);
                   }}
                 >
-                  <span className="rounded-full bg-emerald-500 px-6 py-4 text-xl font-black shadow-xl shadow-black/40">
+                  <span className="rounded-full bg-sky-500 px-6 py-4 text-xl font-black shadow-xl shadow-black/40">
                     ▶ {startLabel}
                   </span>
                   <span className="text-sm font-bold text-white/80">
@@ -245,17 +228,16 @@ export default function BibleWebStartPage() {
             className="flex w-full items-center justify-center rounded-lg bg-white/90 px-3 py-3 text-center text-xs font-black text-black shadow-xl shadow-black/50"
             type="button"
             onClick={() => {
-              window.localStorage.removeItem(koreanBibleProgressKey);
-              window.localStorage.removeItem(legacyKoreanBibleProgressKey);
+              window.localStorage.removeItem(englishBibleProgressKey);
               playerRef.current?.loadVideoById({
-                videoId: koreanBibleVideos[0].videoId,
+                videoId: englishBibleVideos[0].videoId,
                 startSeconds: 0,
               });
               setSavedProgress({ index: 0, seconds: 0, updatedAt: "" });
               setIsPlaying(true);
             }}
           >
-            1일차 다시보기
+            Genesis 다시보기
           </button>
           <a
             className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-3 text-center text-sm font-black text-white shadow-xl shadow-black/50 no-underline"

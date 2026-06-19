@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.cnanfc.xcanplayer",
+      "sha256_cert_fingerprints": [
+        "2D:F1:51:1F:AB:90:8D:46:FC:11:7E:DE:E9:1A:66:06:37:A0:6E:FC:54:6F:A0:33:EC:9D:66:8C:D0:20:5D:A8"
+      ]
+    }
+  }
+]
