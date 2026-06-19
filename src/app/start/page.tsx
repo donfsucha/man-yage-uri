@@ -7,7 +7,12 @@ import {
   normalizeSchedule,
   pickCurrentScheduleSlot,
   scheduleStorageKey,
+  type ScheduleSlot,
 } from "@/lib/xcan/schedule";
+
+const appPackageName = "com.cnanfc.xcanplayer";
+const webFallbackParam = "web";
+const appLaunchFallbackDelayMs = 2200;
 
 function loadSchedule() {
   try {
@@ -18,6 +23,39 @@ function loadSchedule() {
   }
 }
 
+function isAndroidBrowser() {
+  return /Android/i.test(window.navigator.userAgent);
+}
+
+function hasWebFallbackFlag() {
+  return new URLSearchParams(window.location.search).get(webFallbackParam) === "1";
+}
+
+function buildXcanPlayerIntentUrl() {
+  const origin = typeof window === "undefined" ? "https://ifwe.cnanfc.com" : window.location.origin;
+  const fallbackUrl = `${origin}/start?${webFallbackParam}=1`;
+
+  return (
+    `intent://ifwe.cnanfc.com/start#Intent;` +
+    `scheme=https;` +
+    `package=${appPackageName};` +
+    `S.browser_fallback_url=${encodeURIComponent(fallbackUrl)};` +
+    `end`
+  );
+}
+
+function rememberOpenedSlot(slot: ScheduleSlot) {
+  window.localStorage.setItem(
+    lastOpenedStorageKey,
+    JSON.stringify({
+      contentKey: slot.contentKey,
+      targetPath: slot.targetPath,
+      originalTargetPath: slot.targetPath,
+      openedAt: new Date().toISOString(),
+    }),
+  );
+}
+
 export default function NfcStartPage() {
   const [message, setMessage] = useState("현재 시간대 콘텐츠를 확인하고 있습니다.");
   const fallbackSlot = useMemo(() => pickCurrentScheduleSlot(defaultSchedule), []);
@@ -26,18 +64,48 @@ export default function NfcStartPage() {
     const schedule = loadSchedule();
     const slot = pickCurrentScheduleSlot(schedule);
 
-    window.localStorage.setItem(
-      lastOpenedStorageKey,
-      JSON.stringify({
-        contentKey: slot.contentKey,
-        targetPath: slot.targetPath,
-        originalTargetPath: slot.targetPath,
-        openedAt: new Date().toISOString(),
-      }),
-    );
+    rememberOpenedSlot(slot);
 
-    setMessage(`${slot.label} 콘텐츠로 이동합니다.`);
-    window.location.replace(slot.targetPath);
+    const openWebFallback = () => {
+      setMessage(`${slot.label} 콘텐츠로 이동합니다.`);
+      window.location.replace(slot.targetPath);
+    };
+
+    if (isAndroidBrowser() && !hasWebFallbackFlag()) {
+      setMessage("XCAN PLAYER 앱을 여는 중입니다.");
+
+      let appOpened = false;
+      const markAppOpened = () => {
+        if (document.visibilityState === "hidden") {
+          appOpened = true;
+        }
+      };
+
+      const fallbackTimer = window.setTimeout(() => {
+        if (!appOpened && document.visibilityState === "visible") {
+          openWebFallback();
+        }
+      }, appLaunchFallbackDelayMs);
+
+      document.addEventListener("visibilitychange", markAppOpened);
+      window.addEventListener(
+        "pagehide",
+        () => {
+          appOpened = true;
+          window.clearTimeout(fallbackTimer);
+        },
+        { once: true },
+      );
+
+      window.location.href = buildXcanPlayerIntentUrl();
+
+      return () => {
+        window.clearTimeout(fallbackTimer);
+        document.removeEventListener("visibilitychange", markAppOpened);
+      };
+    }
+
+    openWebFallback();
   }, []);
 
   return (
@@ -46,12 +114,20 @@ export default function NfcStartPage() {
         <p className="text-xs font-extrabold text-emerald-300">XC-220 성경통독 거치대</p>
         <h1 className="mt-3 text-2xl font-black">스케줄 확인 중</h1>
         <p className="mt-3 text-sm font-bold text-white/75">{message}</p>
-        <a
-          className="mt-8 inline-flex rounded-lg bg-emerald-500 px-5 py-3 text-sm font-black text-white no-underline"
-          href={fallbackSlot.targetPath}
-        >
-          바로 열기
-        </a>
+        <div className="mt-8 flex justify-center gap-3">
+          <a
+            className="inline-flex rounded-lg bg-emerald-500 px-5 py-3 text-sm font-black text-white no-underline"
+            href={buildXcanPlayerIntentUrl()}
+          >
+            앱 열기
+          </a>
+          <a
+            className="inline-flex rounded-lg bg-white/15 px-5 py-3 text-sm font-black text-white no-underline"
+            href={fallbackSlot.targetPath}
+          >
+            웹으로 보기
+          </a>
+        </div>
       </section>
     </main>
   );
