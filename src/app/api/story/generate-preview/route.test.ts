@@ -1,7 +1,12 @@
-﻿import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const createPreview = vi.fn();
+const getRuntimeConfig = vi.fn();
 const recordAnalyticsEventSafely = vi.fn();
+
+vi.mock("@/lib/config/runtime", () => ({
+  getRuntimeConfig: () => getRuntimeConfig()
+}));
 
 vi.mock("@/lib/story/persistence", () => ({
   createPreview: (...args: unknown[]) => createPreview(...args),
@@ -14,17 +19,17 @@ function validRequest() {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      outputLanguage: "ko",
-      breakupMoment: "문자로 끝난 밤",
-      breakupReason: "서로 미안하다는 말을 미뤘기 때문",
-      alternativeChoice: "화내지 않고 먼저 미안하다고 말하고 싶었어",
-      lastScenePlace: "늦은 밤 카페 앞",
-      rememberedDetail: "식은 라떼와 읽음 표시",
-      partnerBehavior: "답장을 쓰다 지우기를 반복했다",
+      outputLanguage: "en",
+      breakupMoment: "the night it ended by text",
+      breakupReason: "we kept delaying the apology",
+      alternativeChoice: "I wanted to say sorry first instead of acting angry",
+      lastScenePlace: "outside a late night cafe",
+      rememberedDetail: "a cold latte and a read receipt",
+      partnerBehavior: "typed and erased the reply again",
       emotion: "regret",
       desiredEnding: "growth",
-      protagonistAlias: "기림",
-      partnerAlias: "예림",
+      protagonistAlias: "Girim",
+      partnerAlias: "Yerim",
       agreedToFictionNotice: true,
       agreedToPrivacyNotice: true
     })
@@ -34,23 +39,27 @@ function validRequest() {
 describe("generate-preview API", () => {
   beforeEach(() => {
     createPreview.mockReset();
+    getRuntimeConfig.mockReset();
     recordAnalyticsEventSafely.mockReset();
+    getRuntimeConfig.mockReturnValue({
+      mockSupabase: false,
+      supabaseServiceRoleKey: "",
+      supabaseUrl: ""
+    });
   });
 
-  it("returns a safe configuration error when Supabase credentials are missing", async () => {
-    createPreview.mockRejectedValue(
-      new Error("Supabase service credentials are not configured.")
-    );
+  it("returns a safe configuration error before generation when Supabase credentials are missing", async () => {
     const { POST } = await import("./route");
 
     const response = await POST(validRequest());
     const body = await response.json();
 
     expect(response.status).toBe(503);
+    expect(createPreview).not.toHaveBeenCalled();
     expect(body).toEqual({
       code: "server_configuration_missing",
       error:
-        "운영 저장 설정이 아직 연결되지 않았습니다. 관리자에게 Supabase 환경변수 설정을 요청해 주세요."
+        "The production storage settings are not connected yet. Please contact the site administrator."
     });
     expect(recordAnalyticsEventSafely).toHaveBeenCalledWith({
       eventName: "preview_failed",

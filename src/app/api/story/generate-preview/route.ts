@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getRuntimeConfig } from "@/lib/config/runtime";
 import { moderateStoryInput } from "@/lib/story/moderation";
 import { StoryInputSchema } from "@/lib/story/schema";
 import {
@@ -69,6 +70,28 @@ export async function POST(request: Request) {
         categories: moderation.categories
       },
       { status: 400 }
+    );
+  }
+
+  const config = getRuntimeConfig();
+
+  if (!config.mockSupabase && (!config.supabaseUrl || !config.supabaseServiceRoleKey)) {
+    const code = "server_configuration_missing";
+
+    await recordAnalyticsEventSafely({
+      eventName: "preview_failed",
+      metadata: {
+        code,
+        message: "Supabase service credentials are not configured."
+      }
+    });
+
+    return NextResponse.json(
+      {
+        code,
+        error: getConfigurationErrorMessage(parsedInput.data.outputLanguage)
+      },
+      { status: 503 }
     );
   }
 
