@@ -7,6 +7,18 @@ import {
 } from "@/lib/story/persistence";
 
 export const dynamic = "force-dynamic";
+function isSupabaseConfigurationError(error: unknown) {
+  return (
+    error instanceof Error &&
+    error.message === "Supabase service credentials are not configured."
+  );
+}
+
+function getConfigurationErrorMessage(language: "ko" | "en" | undefined) {
+  return language === "en"
+    ? "The production storage settings are not connected yet. Please contact the site administrator."
+    : "운영 저장 설정이 아직 연결되지 않았습니다. 관리자에게 Supabase 환경변수 설정을 요청해 주세요.";
+}
 
 export async function POST(request: Request) {
   let body: unknown;
@@ -68,21 +80,29 @@ export async function POST(request: Request) {
       story: stored.story
     });
   } catch (error) {
+    const configurationMissing = isSupabaseConfigurationError(error);
+    const code = configurationMissing
+      ? "server_configuration_missing"
+      : "preview_generation_failed";
+
     await recordAnalyticsEventSafely({
       eventName: "preview_failed",
       metadata: {
+        code,
         message: error instanceof Error ? error.message : "unknown"
       }
     });
 
     return NextResponse.json(
       {
-        error:
-          error instanceof Error
+        ...(configurationMissing ? { code } : {}),
+        error: configurationMissing
+          ? getConfigurationErrorMessage(parsedInput.data.outputLanguage)
+          : error instanceof Error
             ? error.message
             : "스토리 생성 또는 저장에 실패했습니다."
       },
-      { status: 500 }
+      { status: configurationMissing ? 503 : 500 }
     );
   }
 }
