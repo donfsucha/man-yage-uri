@@ -1,9 +1,9 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChapterReader } from "./chapter-reader";
 import { EventTracker } from "@/components/event-tracker";
 import { BONUS_LINKS, BONUS_OFFER_COPY } from "@/lib/bonus/offer";
-import { getStory } from "@/lib/story/persistence";
+import { getStoryForPage } from "@/lib/story/page-loader";
 import {
   formatEstimatedPages,
   getStoryLengthStats
@@ -61,7 +61,7 @@ function getStoryPageLocale(
 export default async function StoryPage({ params, searchParams }: StoryPageProps) {
   const { id } = await params;
   const query = searchParams ? await searchParams : {};
-  const stored = await getStory(id);
+  const stored = await getStoryForPage(id);
 
   if (!stored) {
     notFound();

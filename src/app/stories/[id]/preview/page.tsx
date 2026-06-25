@@ -1,7 +1,7 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChoiceActions } from "./choice-actions";
-import { getStory } from "@/lib/story/persistence";
+import { getStoryForPage } from "@/lib/story/page-loader";
 import {
   formatEstimatedPages,
   getStoryLengthStats,
@@ -27,17 +27,17 @@ const PREVIEW_COPY = {
     remake: "다시 만들기",
     previewLabel: "무료 미리보기",
     sceneAria: "1화 장면 카드",
-    pageLabel: "만약의 우리",
+    pageLabel: "만약에 우리",
     freeChapter: "1화 무료",
-    unfinished: "이 이야기는 아직 끝나지 않았습니다",
-    continueTitle: "선택한 방향으로 2화부터 5화까지 완결됩니다.",
+    unfinished: "이야기는 아직 끝나지 않았습니다",
+    continueTitle: "선택한 방향으로 2화부터 5화까지 완결됩니다",
     continueBody:
-      "우리의 다른 결말을 끝까지 읽어보고 싶다면, 아래에서 다음 전개를 선택해 주세요.",
-    fullLength: "완결판 목표 분량",
-    mobilePages: "모바일 약",
-    pages: "페이지",
+      "우리의 다른 결말을 끝까지 읽어보고 싶다면 아래에서 다음 전개를 선택해 주세요.",
+    fullLength: "완결편 목표 분량",
+    mobilePages: "약",
+    pages: "모바일 페이지",
     notice:
-      "다음 화면에서 5화 완결 상품을 확인합니다. 공개 베타에서는 결제 의향을 검증하기 위해 결제 버튼 클릭 이벤트를 기록합니다.",
+      "다음 화면에서 5화 완결 상품을 확인합니다. 공개 베타에서는 결제 전환을 검증하기 위해 결제 버튼 클릭 이벤트를 기록합니다.",
     otherLanguageLabel: "English preview"
   },
   en: {
@@ -78,7 +78,7 @@ export default async function PreviewPage({
 }: PreviewPageProps) {
   const { id } = await params;
   const query = searchParams ? await searchParams : {};
-  const stored = await getStory(id);
+  const stored = await getStoryForPage(id);
 
   if (!stored) {
     notFound();
