@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PaymentActions } from "./payment-actions";
 import { EventTracker } from "@/components/event-tracker";
@@ -24,25 +24,27 @@ const CHECKOUT_COPY = {
   ko: {
     chooseTitle: "다음 전개를 먼저 선택해 주세요",
     chooseBody:
-      "5화 완결을 준비하려면 1화 미리보기에서 이어질 방향을 선택해야 합니다.",
+      "5화 완결본을 준비하려면 1화 미리보기에서 이어질 방향을 선택해야 합니다.",
     chooseCta: "선택하러 돌아가기",
     eyebrow: "5화 완결 상품",
-    title: "이 선택으로 두 사람의 결말을 끝까지 열어볼까요?",
+    title: "우리의 다른 결말을 끝까지 읽어볼까요?",
     body:
-      "선택한 전개를 바탕으로 2화부터 5화까지 이어지는 완결 이야기를 생성합니다. 같은 이별도 어떤 단서를 따라가느냐에 따라 완전히 다른 결말이 됩니다.",
+      "선택한 전개를 바탕으로 2화부터 5화까지 이어지는 완결 이야기를 생성합니다. 같은 이별도 어떤 단서를 따라가느냐에 따라 전혀 다른 결말이 됩니다.",
     product: "작품",
     selectedChoice: "선택한 다음 전개",
-    paidHook: "결제 후 바로 열리는 단서",
+    paidHook: "결제 후 바로 이어지는 단서",
     consequence: "이 선택이 바꾸는 것",
     completePack: "5화 완결본",
     paymentNote:
-      "결제가 승인되면 서버가 주문의 스토리 ID, 금액, 통화를 확인한 뒤 선택한 전개에 맞춘 완결 회차를 엽니다.",
+      "결제가 승인되면 PayApp 통보를 서버에서 검증한 뒤 선택한 전개에 맞춘 완결편을 자동으로 열람 가능 상태로 저장합니다.",
     valueNote:
-      "약 45~55 모바일 페이지 분량으로, 1화의 단서가 2화 첫 장면에서 바로 이어지고 마지막 장면까지 회수됩니다.",
-    modePrefix: "현재 Toss 결제는",
+      "완결편은 약 45~55 모바일 페이지 분량을 목표로, 1화의 감정 단서가 2화 첫 장면부터 이어지고 마지막 장면까지 회수되도록 구성합니다.",
+    providerPrefix: "국내 결제",
+    payAppPrefix: "PayApp은",
+    tossPrefix: "Toss 결제는",
+    paypalPrefix: "PayPal은",
     mockPayment: "모의 결제",
     realPayment: "실제 결제",
-    paypalPrefix: "PayPal은",
     modeSuffix: "모드입니다.",
     back: "1화 다시 보기",
     languageLabel: "English checkout"
@@ -62,13 +64,15 @@ const CHECKOUT_COPY = {
     consequence: "What this choice changes",
     completePack: "Complete story",
     paymentNote:
-      "After payment approval, the server verifies the order story ID, amount, and currency before unlocking the completed chapters.",
+      "After payment approval, the server verifies the PayApp notification before unlocking the completed chapters.",
     valueNote:
       "The full story targets roughly 45 to 55 mobile pages, with the chapter 1 clue paid off immediately in chapter 2 and carried through the ending.",
-    modePrefix: "Toss Payments is in",
+    providerPrefix: "Domestic checkout",
+    payAppPrefix: "PayApp is in",
+    tossPrefix: "Toss Payments is in",
+    paypalPrefix: "PayPal is in",
     mockPayment: "mock payment",
     realPayment: "real payment",
-    paypalPrefix: "PayPal is in",
     modeSuffix: "mode.",
     back: "Back to chapter 1",
     languageLabel: "한국어 결제 화면"
@@ -113,11 +117,16 @@ export default async function CheckoutPage({
   const selectedChoice = stored.story.next_choices.find(
     (choice) => choice.choice_id === stored.selectedChoiceId
   );
-  const priceLabel = config.mockPayPal
-    ? locale === "en"
-      ? "KRW 7,900"
-      : "7,900원"
-    : `${config.paypalCurrency} ${config.paypalAmount}`;
+  const hasRealPayApp =
+    !config.mockPayApp && (config.payAppApiEnabled || Boolean(config.payAppCheckoutUrl));
+  const domesticPriceLabel = locale === "en" ? "KRW 7,900" : "7,900원";
+  const priceLabel =
+    hasRealPayApp || !config.mockToss
+      ? domesticPriceLabel
+      : `${config.paypalCurrency} ${config.paypalAmount}`;
+  const domesticProviderPrefix = hasRealPayApp ? copy.payAppPrefix : copy.tossPrefix;
+  const domesticProviderMode =
+    hasRealPayApp || !config.mockToss ? copy.realPayment : copy.mockPayment;
 
   if (!selectedChoice) {
     return (
@@ -270,18 +279,22 @@ export default async function CheckoutPage({
               {copy.paymentNote}
             </p>
             <p className="text-sm leading-6 text-[color:var(--muted)]">
-              {copy.modePrefix} {config.mockToss ? copy.mockPayment : copy.realPayment}{" "}
-              {copy.modeSuffix} {copy.paypalPrefix}{" "}
+              {domesticProviderPrefix} {domesticProviderMode} {copy.modeSuffix}{" "}
+              {copy.paypalPrefix}{" "}
               {config.mockPayPal
                 ? copy.mockPayment
-                : `${config.paypalCurrency} ${config.paypalAmount} ${copy.realPayment}`}{" "}
-              {copy.modeSuffix}
+                : `${config.paypalCurrency} ${config.paypalAmount} ${copy.realPayment}`} {copy.modeSuffix}
             </p>
           </div>
         </section>
 
         <PaymentActions
           locale={locale}
+          mockPayApp={config.mockPayApp}
+          payAppApiEnabled={config.payAppApiEnabled}
+          payAppCheckoutUrl={config.payAppCheckoutUrl}
+          mockToss={config.mockToss}
+          tossClientKey={config.tossClientKey}
           mockPayPal={config.mockPayPal}
           paypalClientId={config.paypalClientId}
           paypalCurrency={config.paypalCurrency}

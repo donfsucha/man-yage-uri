@@ -25,7 +25,7 @@ export const BONUS_OFFER_COPY = {
     koreanBonus: "국문 보너스",
     englishBonus: "English bonus",
     guaranteeTitle: "7일 안심 환불 보증",
-    guaranteeBody: "끝까지 읽고도 후련하지 않으면 환불",
+    guaranteeBody: "끝까지 읽고도 마음이 후련하지 않으면 환불해 드립니다.",
     includedAfterPayment: "결제 완료 후 바로 제공"
   },
   en: {

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+﻿import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import CheckoutPage from "./page";
 
@@ -8,6 +8,9 @@ vi.mock("./payment-actions", () => ({
 
 vi.mock("@/lib/config/runtime", () => ({
   getRuntimeConfig: () => ({
+    mockPayApp: false,
+    payAppApiEnabled: true,
+    payAppCheckoutUrl: "",
     mockPayPal: true,
     mockToss: true,
     paypalAmount: "4.99",
@@ -19,13 +22,14 @@ vi.mock("@/lib/config/runtime", () => ({
 vi.mock("@/lib/story/persistence", () => ({
   getStory: async () => ({
     id: "story-1",
+    input: { outputLanguage: "ko" },
     selectedChoiceId: "A",
     story: {
       title: "비 오는 정류장",
       next_choices: [
         { choice_id: "A", label: "읽음으로 바뀐 문자의 진짜 이유를 확인한다" },
-        { choice_id: "B", label: "마지막 하루에 숨은 다정함의 대가를 본다" },
-        { choice_id: "C", label: "예림이 끝내 말하지 못한 한 문장을 읽는다" }
+        { choice_id: "B", label: "마지막 하루를 함께 보낸다" },
+        { choice_id: "C", label: "끝내 말하지 못한 한 문장을 읽는다" }
       ]
     }
   })
@@ -40,7 +44,7 @@ describe("CheckoutPage", () => {
       })
     );
 
-    expect(screen.getByText("결제 후 바로 열리는 단서")).toBeTruthy();
+    expect(screen.getByText("결제 후 바로 이어지는 단서")).toBeTruthy();
     expect(screen.getByText("읽음 표시와 입력 중 문구 뒤에 숨은 그날의 진짜 이유")).toBeTruthy();
     expect(
       screen.getByText("2화 첫 장면에서 왜 읽음 표시와 입력 중 문구가 동시에 떴는지 확인합니다.")
