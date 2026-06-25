@@ -1,4 +1,4 @@
-﻿type RuntimeEnv = Record<string, string | undefined>;
+type RuntimeEnv = Record<string, string | undefined>;
 
 function boolFromEnv(value: string | undefined) {
   if (value === undefined || value === "") {
@@ -19,12 +19,19 @@ function serviceMockValue(
   requiredKeys: string[]
 ) {
   const explicit = boolFromEnv(env[serviceKey]);
+  const hasRequiredKeys = requiredKeys.every((key) => Boolean(env[key]));
+
+  if (
+    serviceKey === "MOCK_SUPABASE" &&
+    env.VERCEL_ENV === "production" &&
+    hasRequiredKeys
+  ) {
+    return false;
+  }
 
   if (explicit !== null) {
     return explicit;
   }
-
-  const hasRequiredKeys = requiredKeys.every((key) => Boolean(env[key]));
 
   if (hasRequiredKeys) {
     return false;

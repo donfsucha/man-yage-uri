@@ -25,6 +25,17 @@ describe("getRuntimeConfig", () => {
     expect(config.mockSupabase).toBe(true);
   });
 
+  it("forces real Supabase in Vercel production when keys are present", () => {
+    const config = getRuntimeConfig({
+      VERCEL_ENV: "production",
+      NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co",
+      SUPABASE_SERVICE_ROLE_KEY: "sb_secret_test",
+      MOCK_SUPABASE: "true"
+    });
+
+    expect(config.mockSupabase).toBe(false);
+  });
+
   it("enables PayPal when client and secret keys are present", () => {
     const config = getRuntimeConfig({
       NEXT_PUBLIC_PAYPAL_CLIENT_ID: "paypal-client",
