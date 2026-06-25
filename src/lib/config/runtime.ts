@@ -21,11 +21,7 @@ function serviceMockValue(
   const explicit = boolFromEnv(env[serviceKey]);
   const hasRequiredKeys = requiredKeys.every((key) => Boolean(env[key]));
 
-  if (
-    serviceKey === "MOCK_SUPABASE" &&
-    env.VERCEL_ENV === "production" &&
-    hasRequiredKeys
-  ) {
+  if (serviceKey === "MOCK_SUPABASE" && env.VERCEL_ENV === "production") {
     return false;
   }
 
