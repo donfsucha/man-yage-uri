@@ -58,7 +58,7 @@ describe("getStoryForPage", () => {
 
     await expect(getStoryForPage("story-3")).resolves.toEqual(stored);
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://man-yage-uri.vercel.app/api/story/story-3",
+      "https://ifwe.cnanfc.com/api/story/story-3",
       { cache: "no-store" }
     );
   });

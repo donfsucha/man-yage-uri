@@ -6,28 +6,20 @@ type StoryApiResponse = {
   story?: StoredPreviewStory;
 };
 
+const IFWE_PRODUCTION_URL = "https://ifwe.cnanfc.com";
+
 function getPageApiBaseUrl() {
   const configuredUrl = getRuntimeConfig().appUrl.replace(/\/$/, "");
-  const vercelUrl =
-    process.env.VERCEL_PROJECT_PRODUCTION_URL ?? process.env.VERCEL_URL ?? "";
 
   if (configuredUrl && configuredUrl !== "http://localhost:3000") {
     return configuredUrl;
   }
 
-  if (vercelUrl) {
-    return `https://${vercelUrl.replace(/\/$/, "")}`;
-  }
-
-  return "";
+  return IFWE_PRODUCTION_URL;
 }
 
 async function fetchStoryFromApi(id: string) {
   const appUrl = getPageApiBaseUrl();
-
-  if (!appUrl) {
-    return null;
-  }
 
   try {
     const response = await fetch(`${appUrl}/api/story/${id}`, {
