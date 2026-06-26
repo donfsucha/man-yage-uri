@@ -1,0 +1,65 @@
+name: Update Living Life video
+
+on:
+  schedule:
+    # 00:30 and 08:00 Asia/Seoul.
+    - cron: "30 15 * * *"
+    - cron: "0 23 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-living-life-video
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Update Living Life video
+        run: npm run update:living-life-video
+
+      - name: Check for source changes
+        id: changes
+        shell: bash
+        run: |
+          if git diff --quiet -- src/app/l/page.tsx; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Test updater
+        if: steps.changes.outputs.changed == 'true'
+        run: npm test -- scripts/living-life-video.test.mjs
+
+      - name: Build
+        if: steps.changes.outputs.changed == 'true'
+        run: npm run build
+
+      - name: Commit and push update
+        if: steps.changes.outputs.changed == 'true'
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/app/l/page.tsx
+          git commit -m "Update Living Life video for $(TZ=Asia/Seoul date +%F)"
+          git push

@@ -8,7 +8,8 @@
     "lint": "eslint .",
     "start": "next start",
     "test": "vitest run",
-    "check:prod-api": "node scripts/check-production-api.mjs"
+    "check:prod-api": "node scripts/check-production-api.mjs",
+    "update:living-life-video": "node scripts/living-life-video.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.4",

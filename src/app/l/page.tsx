@@ -1,4 +1,4 @@
-const youtubeVideoId = "MgqDC8iJDG4";
+const youtubeVideoId = "o7cnQoct6EM";
 const playStoreUrl =
   "https://play.google.com/store/apps/details?id=com.cnanfc.xcanplayer&pcampaignid=web_share";
 
@@ -8,10 +8,10 @@ export default function LivingLifeWebStartPage() {
       <section className="relative mx-auto flex min-h-screen w-full max-w-none flex-col overflow-hidden">
         <div className="pointer-events-none absolute left-3 top-3 z-10 rounded-md bg-black/55 px-3 py-2 backdrop-blur">
           <p className="text-[11px] font-extrabold text-emerald-300 sm:text-xs">
-            XC-220 성경통독 거치대
+            {"XC-220 \uC131\uACBD\uD1B5\uB3C5 \uAC70\uCE58\uB300"}
           </p>
           <h1 className="mt-0.5 text-base font-black leading-tight tracking-normal sm:text-lg">
-            생명의 삶 영상 바로 보기
+            {"\uC0DD\uBA85\uC758 \uC0B6 \uC601\uC0C1 \uBC14\uB85C \uBCF4\uAE30"}
           </h1>
         </div>
 
@@ -21,7 +21,7 @@ export default function LivingLifeWebStartPage() {
               <iframe
                 className="absolute inset-0 h-full w-full"
                 src={`https://www.youtube.com/embed/${youtubeVideoId}?autoplay=1&playsinline=1&rel=0`}
-                title="생명의 삶 영상"
+                title={"\uC0DD\uBA85\uC758 \uC0B6 \uC601\uC0C1"}
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                 allowFullScreen
               />
@@ -34,8 +34,8 @@ export default function LivingLifeWebStartPage() {
             className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-3 text-center text-sm font-black text-white shadow-xl shadow-black/50 no-underline"
             href={playStoreUrl}
           >
-            <span aria-hidden="true">▶</span>
-            앱 다운로드
+            <span aria-hidden="true">{"\u25B6"}</span>
+            {"\uC571 \uB2E4\uC6B4\uB85C\uB4DC"}
           </a>
         </div>
       </section>
