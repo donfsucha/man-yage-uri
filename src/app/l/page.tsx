@@ -1,4 +1,4 @@
-const youtubeVideoId = "xGsf3VQ-MoM";
+const youtubeVideoId = "2Q7wwRpoXL0";
 const playStoreUrl =
   "https://play.google.com/store/apps/details?id=com.cnanfc.xcanplayer&pcampaignid=web_share";
 
