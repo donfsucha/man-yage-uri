@@ -2,6 +2,7 @@ export const koreanBibleProgressKey = "xcan:progress:korean_bible_reading";
 export const legacyKoreanBibleProgressKey = "xcan:korean-bible-reading-progress:v3";
 export const englishBibleProgressKey = "xcan:progress:english_bible_reading";
 export const koreanBiblePlaylistId = "PLjj_uvKdTemCV3tBQ3iHCe5O-HPXsjtjn";
+export const koreanBiblePlaylistLength = 365;
 
 export type KoreanBibleVideo = {
   day: number;
@@ -18,10 +19,14 @@ export type EnglishBibleVideo = {
   title: string;
 };
 
+export function playlistIndexForBibleDay(day: number) {
+  return Math.max(0, koreanBiblePlaylistLength - day);
+}
+
 export const koreanBibleVideos: KoreanBibleVideo[] = [
   {
     day: 1,
-    playlistIndex: 0,
+    playlistIndex: playlistIndexForBibleDay(1),
     videoId: "3-NAx-ECs70",
     book: "창세기",
     chapters: "1~4장",
@@ -29,7 +34,7 @@ export const koreanBibleVideos: KoreanBibleVideo[] = [
   },
   {
     day: 2,
-    playlistIndex: 1,
+    playlistIndex: playlistIndexForBibleDay(2),
     videoId: "-a-q4tBYVYs",
     book: "창세기",
     chapters: "5~9장",
@@ -37,7 +42,7 @@ export const koreanBibleVideos: KoreanBibleVideo[] = [
   },
   {
     day: 3,
-    playlistIndex: 2,
+    playlistIndex: playlistIndexForBibleDay(3),
     videoId: "ek6UR53q_sU",
     book: "창세기",
     chapters: "10~13장",
@@ -45,42 +50,42 @@ export const koreanBibleVideos: KoreanBibleVideo[] = [
   },
   {
     day: 31,
-    playlistIndex: 30,
+    playlistIndex: playlistIndexForBibleDay(31),
     book: "출애굽기",
     chapters: "1장부터",
     title: "출애굽기 시작",
   },
   {
     day: 122,
-    playlistIndex: 121,
+    playlistIndex: playlistIndexForBibleDay(122),
     book: "시편",
     chapters: "1편부터",
     title: "시편 시작",
   },
   {
     day: 274,
-    playlistIndex: 273,
+    playlistIndex: playlistIndexForBibleDay(274),
     book: "마태복음",
     chapters: "1장부터",
     title: "마태복음 시작",
   },
   {
     day: 292,
-    playlistIndex: 291,
+    playlistIndex: playlistIndexForBibleDay(292),
     book: "마가복음",
     chapters: "1장부터",
     title: "마가복음 시작",
   },
   {
     day: 329,
-    playlistIndex: 328,
+    playlistIndex: playlistIndexForBibleDay(329),
     book: "로마서",
     chapters: "1장부터",
     title: "로마서 시작",
   },
   {
     day: 356,
-    playlistIndex: 355,
+    playlistIndex: playlistIndexForBibleDay(356),
     book: "요한계시록",
     chapters: "1장부터",
     title: "요한계시록 시작",
