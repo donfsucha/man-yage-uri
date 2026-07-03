@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useRef, useState } from "react";
 import { englishBibleProgressKey, englishBibleVideos } from "@/lib/xcan/bible-reading";
@@ -13,9 +13,15 @@ type SavedProgress = {
 };
 
 type YouTubePlayer = {
-  playVideo: () => void;
+  playVideo?: () => void;
   loadVideoById: (options: {
     videoId: string;
+    startSeconds?: number;
+  }) => void;
+  loadPlaylist?: (options: {
+    list: string;
+    listType: "playlist";
+    index: number;
     startSeconds?: number;
   }) => void;
   getCurrentTime: () => number;
@@ -207,7 +213,7 @@ export default function EnglishBibleWebStartPage() {
                   className="absolute inset-0 flex h-full w-full flex-col items-center justify-center gap-3 bg-black/45 px-6 text-center"
                   type="button"
                   onClick={() => {
-                    playerRef.current?.playVideo();
+                    playerRef.current?.playVideo?.();
                     setIsPlaying(true);
                   }}
                 >
