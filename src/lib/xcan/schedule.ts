@@ -13,19 +13,19 @@ export const defaultSchedule: ScheduleSlot[] = [
     startTime: "08:00",
     contentKey: "living_life",
     targetPath: "/l",
-    label: "생명의 삶",
+    label: "\uC0DD\uBA85\uC758 \uC0B6",
   },
   {
     startTime: "10:00",
     contentKey: "korean_bible_reading",
     targetPath: "/b",
-    label: "한글성경통독",
+    label: "\uD55C\uAE00\uC131\uACBD\uD1B5\uB3C5",
   },
   {
     startTime: "20:00",
     contentKey: "english_bible_reading",
     targetPath: "/e",
-    label: "영어성경통독",
+    label: "\uC601\uC5B4\uC131\uACBD\uD1B5\uB3C5",
   },
   {
     startTime: "21:00",
