@@ -1,6 +1,11 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
+import {
+  appLaunchFallbackDelayMs,
+  buildXcanPlayerIntentUrl,
+  webFallbackParam,
+} from "@/lib/xcan/app-launch";
 import {
   defaultSchedule,
   lastOpenedStorageKey,
@@ -9,10 +14,6 @@ import {
   scheduleStorageKey,
   type ScheduleSlot,
 } from "@/lib/xcan/schedule";
-
-const appPackageName = "com.cnanfc.xcanplayer";
-const webFallbackParam = "web";
-const appLaunchFallbackDelayMs = 2200;
 
 function loadSchedule() {
   try {
@@ -29,19 +30,6 @@ function isAndroidBrowser() {
 
 function hasWebFallbackFlag() {
   return new URLSearchParams(window.location.search).get(webFallbackParam) === "1";
-}
-
-function buildXcanPlayerIntentUrl() {
-  const origin = typeof window === "undefined" ? "https://ifwe.cnanfc.com" : window.location.origin;
-  const fallbackUrl = `${origin}/start?${webFallbackParam}=1`;
-
-  return (
-    `intent://ifwe.cnanfc.com/start#Intent;` +
-    `scheme=https;` +
-    `package=${appPackageName};` +
-    `S.browser_fallback_url=${encodeURIComponent(fallbackUrl)};` +
-    `end`
-  );
 }
 
 function rememberOpenedSlot(slot: ScheduleSlot) {
@@ -66,13 +54,17 @@ export default function NfcStartPage() {
 
     rememberOpenedSlot(slot);
 
+    const updateMessage = (value: string) => {
+      window.setTimeout(() => setMessage(value), 0);
+    };
+
     const openWebFallback = () => {
-      setMessage(`${slot.label} 콘텐츠로 이동합니다.`);
+      updateMessage(`${slot.label} 콘텐츠로 이동합니다.`);
       window.location.replace(slot.targetPath);
     };
 
     if (isAndroidBrowser() && !hasWebFallbackFlag()) {
-      setMessage("XCAN PLAYER 앱을 여는 중입니다.");
+      updateMessage("XCAN PLAYER 앱을 여는 중입니다.");
 
       let appOpened = false;
       const markAppOpened = () => {
@@ -97,7 +89,7 @@ export default function NfcStartPage() {
         { once: true },
       );
 
-      window.location.href = buildXcanPlayerIntentUrl();
+      window.location.href = buildXcanPlayerIntentUrl(window.location.origin);
 
       return () => {
         window.clearTimeout(fallbackTimer);
@@ -117,7 +109,7 @@ export default function NfcStartPage() {
         <div className="mt-8 flex justify-center gap-3">
           <a
             className="inline-flex rounded-lg bg-emerald-500 px-5 py-3 text-sm font-black text-white no-underline"
-            href={buildXcanPlayerIntentUrl()}
+            href={buildXcanPlayerIntentUrl(typeof window === "undefined" ? "https://ifwe.cnanfc.com" : window.location.origin)}
           >
             앱 열기
           </a>

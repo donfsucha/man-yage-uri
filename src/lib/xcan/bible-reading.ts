@@ -13,6 +13,13 @@ export type KoreanBibleVideo = {
   title: string;
 };
 
+export type KoreanBibleBookGroup = {
+  book: string;
+  startDay: number;
+  endDay: number;
+  items: KoreanBibleVideo[];
+};
+
 export type EnglishBibleVideo = {
   book: string;
   videoId: string;
@@ -92,6 +99,31 @@ export const koreanBibleVideos: KoreanBibleVideo[] = [
   },
 ];
 
+
+export function groupKoreanBibleVideosByBook(
+  videos: KoreanBibleVideo[] = koreanBibleVideos,
+): KoreanBibleBookGroup[] {
+  const groups: KoreanBibleBookGroup[] = [];
+
+  for (const video of videos) {
+    const lastGroup = groups[groups.length - 1];
+
+    if (lastGroup && lastGroup.book === video.book) {
+      lastGroup.items.push(video);
+      lastGroup.endDay = video.day;
+      continue;
+    }
+
+    groups.push({
+      book: video.book,
+      startDay: video.day,
+      endDay: video.day,
+      items: [video],
+    });
+  }
+
+  return groups;
+}
 export function findKoreanBibleIndexByBook(book: string) {
   return koreanBibleVideos.findIndex((video) => video.book === book);
 }

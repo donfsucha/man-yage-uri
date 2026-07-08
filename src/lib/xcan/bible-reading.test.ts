@@ -3,6 +3,7 @@ import {
   englishBibleVideos,
   findKoreanBibleIndexByBook,
   getKoreanBibleCompletionPercent,
+  groupKoreanBibleVideosByBook,
   koreanBiblePlaylistId,
   koreanBiblePlaylistLength,
   koreanBibleProgressKey,
@@ -57,6 +58,14 @@ describe("XCAN Bible reading sequences", () => {
     });
   });
 
+
+  it("groups Korean Bible reading entries by Bible book", () => {
+    const groups = groupKoreanBibleVideosByBook(koreanBibleVideos);
+
+    expect(groups[0]).toMatchObject({ book: koreanBibleVideos[0].book, startDay: 1 });
+    expect(groups[0].items.map((item) => item.day)).toEqual([1, 2, 3]);
+    expect(groups.map((group) => group.book)).toContain(koreanBibleVideos[3].book);
+  });
   it("calculates reading table completion from known plan entries", () => {
     expect(getKoreanBibleCompletionPercent([])).toBe(0);
     expect(getKoreanBibleCompletionPercent([1, 2, 3])).toBe(33);

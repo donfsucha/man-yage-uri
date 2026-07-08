@@ -1,30 +1,32 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   getKoreanBibleCompletionPercent,
+  groupKoreanBibleVideosByBook,
   koreanBiblePlaylistId,
   koreanBibleProgressKey,
   koreanBibleVideos,
   legacyKoreanBibleProgressKey,
+  type KoreanBibleBookGroup,
   type KoreanBibleVideo,
 } from "@/lib/xcan/bible-reading";
 
 const playStoreUrl =
   "https://play.google.com/store/apps/details?id=com.cnanfc.xcanplayer&pcampaignid=web_share";
 
-const emptyProgress: SavedProgress = {
-  index: 0,
-  seconds: 0,
-  completedDays: [],
-  updatedAt: "",
-};
-
 type SavedProgress = {
   index: number;
   seconds: number;
   completedDays: number[];
   updatedAt: string;
+};
+
+const emptyProgress: SavedProgress = {
+  index: 0,
+  seconds: 0,
+  completedDays: [],
+  updatedAt: "",
 };
 
 type YouTubePlayer = {
@@ -193,6 +195,10 @@ function toggleDay(completedDays: number[], day: number) {
   return Array.from(next).sort((a, b) => a - b);
 }
 
+function getGroupKey(group: KoreanBibleBookGroup) {
+  return `${group.book}-${group.startDay}`;
+}
+
 export default function BibleWebStartPage() {
   const playerRef = useRef<YouTubePlayer | null>(null);
   const saveTimerRef = useRef<number | null>(null);
@@ -202,10 +208,25 @@ export default function BibleWebStartPage() {
   const [isReady, setIsReady] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPlanOpen, setIsPlanOpen] = useState(false);
+  const [openGroupKey, setOpenGroupKey] = useState<string | null>(null);
 
+  const bookGroups = useMemo(() => groupKoreanBibleVideosByBook(koreanBibleVideos), []);
   const completedPercent = useMemo(
     () => getKoreanBibleCompletionPercent(savedProgress.completedDays),
     [savedProgress.completedDays],
+  );
+
+  const currentVideo = koreanBibleVideos[savedProgress.index] ?? koreanBibleVideos[0];
+
+  const findGroupKeyForIndex = useCallback(
+    (index: number) => {
+      const video = koreanBibleVideos[index] ?? koreanBibleVideos[0];
+      const group = bookGroups.find((item) =>
+        item.items.some((entry) => entry.day === video.day),
+      );
+      return group ? getGroupKey(group) : null;
+    },
+    [bookGroups],
   );
 
   const setProgress = (progress: SavedProgress) => {
@@ -228,6 +249,7 @@ export default function BibleWebStartPage() {
     setProgress(nextProgress);
     setIsPlaying(true);
     setIsPlanOpen(false);
+    setOpenGroupKey(findGroupKeyForIndex(safeIndex));
 
     if (playerRef.current) {
       playBibleVideo(playerRef.current, video, seconds);
@@ -238,13 +260,16 @@ export default function BibleWebStartPage() {
     const progress = loadSavedProgress();
     activeIndexRef.current = progress.index;
     completedDaysRef.current = progress.completedDays;
-    window.setTimeout(() => setSavedProgress(progress), 0);
+    window.setTimeout(() => {
+      setSavedProgress(progress);
+      setOpenGroupKey(findGroupKeyForIndex(progress.index));
+    }, 0);
 
     window.onYouTubeIframeAPIReady = () => {
-      const currentVideo = koreanBibleVideos[activeIndexRef.current] ?? koreanBibleVideos[0];
+      const initialVideo = koreanBibleVideos[activeIndexRef.current] ?? koreanBibleVideos[0];
 
       playerRef.current = new window.YT!.Player("youtube-player", {
-        videoId: currentVideo.videoId,
+        videoId: initialVideo.videoId,
         width: "100%",
         height: "100%",
         playerVars: {
@@ -257,7 +282,7 @@ export default function BibleWebStartPage() {
         events: {
           onReady: (event) => {
             playerRef.current = event.target;
-            playBibleVideo(event.target, currentVideo, progress.seconds);
+            playBibleVideo(event.target, initialVideo, progress.seconds);
             setIsReady(true);
           },
           onStateChange: (event) => {
@@ -281,6 +306,7 @@ export default function BibleWebStartPage() {
               };
 
               setProgress(nextProgress);
+              setOpenGroupKey(findGroupKeyForIndex(nextIndex));
               playBibleVideo(event.target, koreanBibleVideos[nextIndex], 0);
             }
           },
@@ -312,25 +338,24 @@ export default function BibleWebStartPage() {
       playerRef.current?.destroy?.();
       window.onYouTubeIframeAPIReady = undefined;
     };
-  }, []);
+  }, [findGroupKeyForIndex]);
 
-  const currentVideo = koreanBibleVideos[savedProgress.index] ?? koreanBibleVideos[0];
   const startLabel =
-    savedProgress.index > 0 || savedProgress.seconds > 0
+    savedProgress.seconds > 0
       ? `${currentVideo.title} ${Math.floor(savedProgress.seconds / 60)}분부터 이어보기`
-      : "1일차 창세기부터 성경통독 시작";
+      : `${currentVideo.title} 시작`;
 
   return (
     <main className="min-h-screen bg-black text-white">
       <section className="relative mx-auto flex min-h-screen w-full max-w-none flex-col overflow-hidden">
-        <div className="pointer-events-none absolute left-3 top-3 z-10 rounded-md bg-black/65 px-3 py-2 backdrop-blur">
+        <div className="pointer-events-none absolute left-3 top-3 z-10 max-w-[78vw] rounded-md bg-black/70 px-3 py-2 backdrop-blur">
           <p className="text-[11px] font-extrabold text-emerald-300 sm:text-xs">
             XC-220 성경통독 거치대
           </p>
           <h1 className="mt-0.5 text-base font-black leading-tight tracking-normal sm:text-lg">
             한글성경통독 이어보기
           </h1>
-          <p className="mt-1 max-w-[260px] text-[11px] font-bold text-white/80 sm:text-xs">
+          <p className="mt-1 max-w-[280px] text-[11px] font-bold text-white/80 sm:text-xs">
             {startLabel}
           </p>
           <p className="mt-1 text-[11px] font-bold text-white/70">
@@ -351,8 +376,8 @@ export default function BibleWebStartPage() {
                     setIsPlaying(true);
                   }}
                 >
-                  <span className="rounded-full bg-emerald-500 px-6 py-4 text-xl font-black shadow-xl shadow-black/40">
-                    ▶ {startLabel}
+                  <span className="max-w-[88vw] rounded-full bg-emerald-500 px-6 py-4 text-lg font-black shadow-xl shadow-black/40 sm:text-xl">
+                    {startLabel}
                   </span>
                   <span className="text-sm font-bold text-white/80">
                     자동재생이 막히면 한 번 눌러 주세요.
@@ -363,42 +388,44 @@ export default function BibleWebStartPage() {
           </div>
         </div>
 
-        <div className="fixed right-3 top-1/2 z-20 flex w-[132px] -translate-y-1/2 flex-col gap-2 sm:right-5 sm:w-[160px]">
+        <div className="fixed right-3 top-1/2 z-20 flex w-[128px] -translate-y-1/2 flex-col gap-2 sm:right-5 sm:w-[154px]">
           <button
             className="flex w-full items-center justify-center rounded-lg bg-white/90 px-3 py-3 text-center text-xs font-black text-black shadow-xl shadow-black/50"
             type="button"
-            onClick={() => startAtIndex(0, 0)}
+            onClick={() => startAtIndex(savedProgress.index, 0)}
           >
-            1일차 다시보기
+            금일 분량 다시보기
           </button>
           <button
             className="flex w-full items-center justify-center rounded-lg bg-sky-500 px-3 py-3 text-center text-xs font-black text-white shadow-xl shadow-black/50"
             type="button"
-            onClick={() => setIsPlanOpen((value) => !value)}
+            onClick={() => {
+              setOpenGroupKey((value) => value ?? findGroupKeyForIndex(savedProgress.index));
+              setIsPlanOpen((value) => !value);
+            }}
           >
             읽기표 / 시작 선택
           </button>
           <a
-            className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-3 text-center text-sm font-black text-white shadow-xl shadow-black/50 no-underline"
+            className="flex w-full items-center justify-center rounded-lg bg-emerald-500 px-3 py-3 text-center text-xs font-black text-white shadow-xl shadow-black/50 no-underline"
             href={playStoreUrl}
           >
-            <span aria-hidden="true">↓</span>
             앱 다운로드
           </a>
         </div>
 
         {isPlanOpen && (
-          <div className="fixed inset-x-0 bottom-0 z-30 border-t border-white/15 bg-zinc-950/96 px-3 pb-4 pt-3 text-white shadow-2xl shadow-black backdrop-blur sm:left-auto sm:right-4 sm:bottom-4 sm:w-[420px] sm:rounded-lg sm:border">
+          <div className="fixed inset-x-0 bottom-0 z-30 border-t border-white/15 bg-zinc-950/96 px-3 pb-4 pt-3 text-white shadow-2xl shadow-black backdrop-blur sm:left-auto sm:right-4 sm:bottom-4 sm:w-[440px] sm:rounded-lg sm:border">
             <div className="mb-3 flex items-start justify-between gap-3">
-              <div>
+              <div className="min-w-0">
                 <p className="text-xs font-extrabold text-emerald-300">성경 읽기표</p>
-                <h2 className="text-lg font-black">시작 위치 선택</h2>
+                <h2 className="text-lg font-black">책별 시작 위치 선택</h2>
                 <p className="mt-1 text-xs font-bold text-white/65">
-                  원하는 책을 고르면 다음 NFC 실행 때도 그 위치부터 이어집니다.
+                  책을 먼저 열고, 안에서 원하는 일차를 선택하세요.
                 </p>
               </div>
               <button
-                className="rounded-md bg-white/10 px-3 py-2 text-xs font-black text-white"
+                className="min-w-16 shrink-0 whitespace-nowrap rounded-md bg-white/10 px-3 py-2 text-xs font-black text-white"
                 type="button"
                 onClick={() => setIsPlanOpen(false)}
               >
@@ -411,56 +438,96 @@ export default function BibleWebStartPage() {
               {koreanBibleVideos.length}
             </div>
 
-            <div className="max-h-[42vh] overflow-y-auto pr-1">
-              {koreanBibleVideos.map((video, index) => {
-                const isCurrent = index === savedProgress.index;
-                const isCompleted = savedProgress.completedDays.includes(video.day);
+            <div className="max-h-[48vh] overflow-y-auto pr-1">
+              {bookGroups.map((group) => {
+                const key = getGroupKey(group);
+                const isOpen = openGroupKey === key;
+                const completedInGroup = group.items.filter((video) =>
+                  savedProgress.completedDays.includes(video.day),
+                ).length;
+                const dayLabel =
+                  group.startDay === group.endDay
+                    ? `${group.startDay}일차부터`
+                    : `${group.startDay}-${group.endDay}일차`;
 
                 return (
-                  <div
-                    className={`mb-2 grid grid-cols-[38px_1fr_76px] items-center gap-2 rounded-md border px-2 py-2 ${
-                      isCurrent
-                        ? "border-emerald-400 bg-emerald-500/15"
-                        : "border-white/10 bg-white/5"
-                    }`}
-                    key={`${video.day}-${video.title}`}
-                  >
+                  <section className="mb-2 rounded-lg border border-white/10 bg-white/5" key={key}>
                     <button
-                      aria-pressed={isCompleted}
-                      className={`h-8 w-8 rounded-full text-sm font-black ${
-                        isCompleted ? "bg-emerald-500 text-white" : "bg-white/10 text-white/70"
-                      }`}
+                      aria-expanded={isOpen}
+                      className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left"
                       type="button"
-                      onClick={() => {
-                        const nextCompletedDays = toggleDay(savedProgress.completedDays, video.day);
-                        const nextProgress = {
-                          ...savedProgress,
-                          completedDays: nextCompletedDays,
-                          updatedAt: new Date().toISOString(),
-                        };
-                        setProgress(nextProgress);
-                      }}
+                      onClick={() => setOpenGroupKey(isOpen ? null : key)}
                     >
-                      {isCompleted ? "완" : video.day}
-                    </button>
-                    <button
-                      className="min-w-0 text-left"
-                      type="button"
-                      onClick={() => startAtIndex(index, 0)}
-                    >
-                      <span className="block truncate text-sm font-black">{video.title}</span>
-                      <span className="block truncate text-xs font-bold text-white/60">
-                        {video.book} {video.chapters} · {video.day}일차
+                      <span className="min-w-0">
+                        <span className="block truncate text-base font-black">{group.book}</span>
+                        <span className="block truncate text-xs font-bold text-white/60">
+                          {dayLabel} · {completedInGroup}/{group.items.length} 완료
+                        </span>
+                      </span>
+                      <span className="shrink-0 rounded-md bg-white/10 px-3 py-2 text-xs font-black text-white">
+                        {isOpen ? "접기" : "열기"}
                       </span>
                     </button>
-                    <button
-                      className="rounded-md bg-white/12 px-2 py-2 text-xs font-black text-white"
-                      type="button"
-                      onClick={() => startAtIndex(index, 0)}
-                    >
-                      시작
-                    </button>
-                  </div>
+
+                    {isOpen && (
+                      <div className="border-t border-white/10 px-2 py-2">
+                        {group.items.map((video) => {
+                          const index = koreanBibleVideos.findIndex((item) => item.day === video.day);
+                          const isCurrent = index === savedProgress.index;
+                          const isCompleted = savedProgress.completedDays.includes(video.day);
+
+                          return (
+                            <div
+                              className={`mb-2 grid grid-cols-[34px_1fr_70px] items-center gap-2 rounded-md border px-2 py-2 last:mb-0 ${
+                                isCurrent
+                                  ? "border-emerald-400 bg-emerald-500/15"
+                                  : "border-white/10 bg-black/25"
+                              }`}
+                              key={`${video.day}-${video.title}`}
+                            >
+                              <button
+                                aria-pressed={isCompleted}
+                                className={`h-8 w-8 rounded-full text-xs font-black ${
+                                  isCompleted ? "bg-emerald-500 text-white" : "bg-white/10 text-white/70"
+                                }`}
+                                type="button"
+                                onClick={() => {
+                                  const nextCompletedDays = toggleDay(
+                                    savedProgress.completedDays,
+                                    video.day,
+                                  );
+                                  setProgress({
+                                    ...savedProgress,
+                                    completedDays: nextCompletedDays,
+                                    updatedAt: new Date().toISOString(),
+                                  });
+                                }}
+                              >
+                                {isCompleted ? "완" : video.day}
+                              </button>
+                              <button
+                                className="min-w-0 text-left"
+                                type="button"
+                                onClick={() => startAtIndex(index, 0)}
+                              >
+                                <span className="block truncate text-sm font-black">{video.title}</span>
+                                <span className="block truncate text-xs font-bold text-white/60">
+                                  {video.chapters} · {video.day}일차
+                                </span>
+                              </button>
+                              <button
+                                className="whitespace-nowrap rounded-md bg-white/12 px-2 py-2 text-xs font-black text-white"
+                                type="button"
+                                onClick={() => startAtIndex(index, 0)}
+                              >
+                                시작
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </section>
                 );
               })}
             </div>
