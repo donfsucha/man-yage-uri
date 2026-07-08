@@ -7,7 +7,7 @@ export function buildXcanPlayerIntentUrl(origin = "https://ifwe.cnanfc.com") {
   const fallbackUrl = `${normalizedOrigin}/start?${webFallbackParam}=1`;
 
   return (
-    "intent://start#Intent;" +
+    "intent://bible-start#Intent;" +
     "scheme=xcanplayer;" +
     `package=${appPackageName};` +
     `S.browser_fallback_url=${encodeURIComponent(fallbackUrl)};` +
