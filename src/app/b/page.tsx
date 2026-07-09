@@ -2,6 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  findKoreanBibleIndexByBook,
+  findKoreanBibleIndexByDay,
+  findKoreanBibleIndexByVideoId,
   getKoreanBibleCompletionPercent,
   groupKoreanBibleVideosByBook,
   koreanBiblePlaylistId,
@@ -95,6 +98,46 @@ function normalizeCompletedDays(value: unknown) {
   ).sort((a, b) => a - b);
 }
 
+type StoredKoreanBibleProgress = Partial<
+  SavedProgress & {
+    currentIndex: number;
+    positionSeconds: number;
+    dayNumber: number;
+    videoId: string | null;
+    book: string;
+    title: string;
+  }
+>;
+
+function resolveSavedProgressIndex(parsed: StoredKoreanBibleProgress) {
+  const savedVideoId = typeof parsed.videoId === "string" ? parsed.videoId : "";
+
+  if (savedVideoId) {
+    const indexByVideo = findKoreanBibleIndexByVideoId(savedVideoId);
+    if (indexByVideo >= 0) return indexByVideo;
+  }
+
+  const savedBook = typeof parsed.book === "string" ? parsed.book : "";
+  const savedTitle = typeof parsed.title === "string" ? parsed.title : "";
+  const looksLikeBookStart = !savedVideoId || savedTitle.includes("\uC2DC\uC791");
+
+  if (looksLikeBookStart && savedBook) {
+    const indexByBook = findKoreanBibleIndexByBook(savedBook);
+    if (indexByBook >= 0) return indexByBook;
+  }
+
+  const savedDay = Number(parsed.dayNumber);
+  if (Number.isFinite(savedDay)) {
+    const indexByDay = findKoreanBibleIndexByDay(savedDay);
+    if (indexByDay >= 0) return indexByDay;
+  }
+
+  const parsedIndex = Number(parsed.index ?? parsed.currentIndex);
+  if (!Number.isFinite(parsedIndex)) return 0;
+
+  return Math.min(koreanBibleVideos.length - 1, Math.max(0, parsedIndex));
+}
+
 function loadSavedProgress(): SavedProgress {
   if (typeof window === "undefined") {
     return emptyProgress;
@@ -104,18 +147,10 @@ function loadSavedProgress(): SavedProgress {
     const saved = readSavedProgress();
     if (!saved) return emptyProgress;
 
-    const parsed = JSON.parse(saved) as Partial<
-      SavedProgress & {
-        currentIndex: number;
-        positionSeconds: number;
-      }
-    >;
-    const parsedIndex = Number(parsed.index ?? parsed.currentIndex);
-    const maxIndex = koreanBibleVideos.length - 1;
-    const safeIndex = Number.isFinite(parsedIndex) ? parsedIndex : 0;
+    const parsed = JSON.parse(saved) as StoredKoreanBibleProgress;
 
     return {
-      index: Math.min(maxIndex, Math.max(0, safeIndex)),
+      index: resolveSavedProgressIndex(parsed),
       seconds: Math.max(0, Number(parsed.seconds ?? parsed.positionSeconds) || 0),
       completedDays: normalizeCompletedDays(parsed.completedDays),
       updatedAt: String(parsed.updatedAt || ""),
