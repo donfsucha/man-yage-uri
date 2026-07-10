@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { requestVideoFullscreen } from "@/lib/xcan/fullscreen";
 import { englishBibleProgressKey, englishBibleVideos } from "@/lib/xcan/bible-reading";
 
 const playStoreUrl =
@@ -101,6 +102,35 @@ export default function EnglishBibleWebStartPage() {
   });
   const [isReady, setIsReady] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [showChrome, setShowChrome] = useState(true);
+  const [isXcanApp, setIsXcanApp] = useState(false);
+  const chromeTimerRef = useRef<number | null>(null);
+
+  const revealChrome = useCallback(() => {
+    setShowChrome(true);
+    if (chromeTimerRef.current) window.clearTimeout(chromeTimerRef.current);
+    if (isPlaying && isXcanApp) {
+      chromeTimerRef.current = window.setTimeout(() => setShowChrome(false), 3200);
+    }
+  }, [isPlaying, isXcanApp]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setIsXcanApp(Boolean(window.AndroidBot));
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!isXcanApp) return undefined;
+
+    const timer = window.setTimeout(revealChrome, 0);
+    return () => {
+      window.clearTimeout(timer);
+      if (chromeTimerRef.current) window.clearTimeout(chromeTimerRef.current);
+    };
+  }, [isPlaying, isXcanApp, revealChrome]);
 
   useEffect(() => {
     const progress = loadSavedProgress();
@@ -117,7 +147,7 @@ export default function EnglishBibleWebStartPage() {
         playerVars: {
           autoplay: 1,
           controls: 1,
-          playsinline: 1,
+          playsinline: 0,
           rel: 0,
           start: Math.floor(progress.seconds),
         },
@@ -131,6 +161,7 @@ export default function EnglishBibleWebStartPage() {
           },
           onStateChange: (event) => {
             if (event.data === window.YT?.PlayerState.PLAYING) {
+              requestVideoFullscreen();
               setIsPlaying(true);
               saveProgress(event.target, activeIndex);
             }
@@ -184,6 +215,7 @@ export default function EnglishBibleWebStartPage() {
   }, []);
 
   const currentVideo = englishBibleVideos[savedProgress.index] ?? englishBibleVideos[0];
+  const shouldHideChrome = isXcanApp && isPlaying && !showChrome;
   const startLabel =
     savedProgress.index > 0 || savedProgress.seconds > 0
       ? `${currentVideo.book} ${Math.floor(savedProgress.seconds / 60)}분부터 이어보기`
@@ -191,8 +223,8 @@ export default function EnglishBibleWebStartPage() {
 
   return (
     <main className="min-h-screen bg-black text-white">
-      <section className="relative mx-auto flex min-h-screen w-full max-w-none flex-col overflow-hidden">
-        <div className="pointer-events-none absolute left-3 top-3 z-10 rounded-md bg-black/65 px-3 py-2 backdrop-blur">
+      <section className="relative mx-auto flex min-h-screen w-full max-w-none flex-col overflow-hidden" onClick={revealChrome}>
+        <div className={`pointer-events-none absolute left-3 top-3 z-10 rounded-md bg-black/65 px-3 py-2 backdrop-blur transition-opacity duration-300 ${shouldHideChrome ? "opacity-0" : "opacity-100"}`}>
           <p className="text-[11px] font-extrabold text-sky-300 sm:text-xs">
             XC-220 성경통독 거치대
           </p>
@@ -206,13 +238,14 @@ export default function EnglishBibleWebStartPage() {
 
         <div className="flex min-h-screen w-full items-start justify-center bg-black">
           <div className="w-full bg-black">
-            <div className="relative aspect-video w-full">
+            <div id="youtube-shell" className="relative aspect-video w-full">
               <div id="youtube-player" className="absolute inset-0 h-full w-full" />
               {(!isReady || !isPlaying) && (
                 <button
                   className="absolute inset-0 flex h-full w-full flex-col items-center justify-center gap-3 bg-black/45 px-6 text-center"
                   type="button"
                   onClick={() => {
+                    requestVideoFullscreen();
                     playerRef.current?.playVideo?.();
                     setIsPlaying(true);
                   }}
@@ -229,12 +262,13 @@ export default function EnglishBibleWebStartPage() {
           </div>
         </div>
 
-        <div className="fixed right-3 top-1/2 z-20 flex w-[132px] -translate-y-1/2 flex-col gap-2 sm:right-5 sm:w-[160px]">
+        <div className={`fixed right-3 top-1/2 z-20 flex w-[132px] -translate-y-1/2 flex-col gap-2 transition-opacity duration-300 sm:right-5 sm:w-[160px] ${shouldHideChrome ? "pointer-events-none opacity-0" : "opacity-100"}`}>
           <button
             className="flex w-full items-center justify-center rounded-lg bg-white/90 px-3 py-3 text-center text-xs font-black text-black shadow-xl shadow-black/50"
             type="button"
             onClick={() => {
               window.localStorage.removeItem(englishBibleProgressKey);
+              requestVideoFullscreen();
               playerRef.current?.loadVideoById({
                 videoId: englishBibleVideos[0].videoId,
                 startSeconds: 0,
@@ -245,13 +279,15 @@ export default function EnglishBibleWebStartPage() {
           >
             Genesis 다시보기
           </button>
-          <a
-            className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-3 text-center text-sm font-black text-white shadow-xl shadow-black/50 no-underline"
-            href={playStoreUrl}
-          >
-            <span aria-hidden="true">↓</span>
-            앱 다운로드
-          </a>
+          {!isXcanApp && (
+            <a
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-3 text-center text-sm font-black text-white shadow-xl shadow-black/50 no-underline"
+              href={playStoreUrl}
+            >
+              <span aria-hidden="true">↓</span>
+              앱 다운로드
+            </a>
+          )}
         </div>
       </section>
     </main>

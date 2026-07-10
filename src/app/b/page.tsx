@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { requestVideoFullscreen } from "@/lib/xcan/fullscreen";
 import {
   findKoreanBibleIndexByBook,
   findKoreanBibleIndexByDay,
@@ -179,6 +180,7 @@ function playBibleVideo(player: YouTubePlayer, video: KoreanBibleVideo, seconds:
 }
 
 function playCurrentVideo(player: YouTubePlayer | null) {
+  requestVideoFullscreen();
   if (typeof player?.playVideo === "function") {
     player.playVideo();
   }
@@ -244,6 +246,35 @@ export default function BibleWebStartPage() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPlanOpen, setIsPlanOpen] = useState(false);
   const [openGroupKey, setOpenGroupKey] = useState<string | null>(null);
+  const [showChrome, setShowChrome] = useState(true);
+  const [isXcanApp, setIsXcanApp] = useState(false);
+  const chromeTimerRef = useRef<number | null>(null);
+
+  const revealChrome = useCallback(() => {
+    setShowChrome(true);
+    if (chromeTimerRef.current) window.clearTimeout(chromeTimerRef.current);
+    if (isPlaying && isXcanApp) {
+      chromeTimerRef.current = window.setTimeout(() => setShowChrome(false), 3200);
+    }
+  }, [isPlaying, isXcanApp]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setIsXcanApp(Boolean(window.AndroidBot));
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!isXcanApp) return undefined;
+
+    const timer = window.setTimeout(revealChrome, 0);
+    return () => {
+      window.clearTimeout(timer);
+      if (chromeTimerRef.current) window.clearTimeout(chromeTimerRef.current);
+    };
+  }, [isPlaying, isXcanApp, revealChrome]);
 
   const bookGroups = useMemo(() => groupKoreanBibleVideosByBook(koreanBibleVideos), []);
   const completedPercent = useMemo(
@@ -252,6 +283,7 @@ export default function BibleWebStartPage() {
   );
 
   const currentVideo = koreanBibleVideos[savedProgress.index] ?? koreanBibleVideos[0];
+  const shouldHideChrome = isXcanApp && isPlaying && !showChrome;
 
   const findGroupKeyForIndex = useCallback(
     (index: number) => {
@@ -282,6 +314,7 @@ export default function BibleWebStartPage() {
     };
 
     setProgress(nextProgress);
+    requestVideoFullscreen();
     setIsPlaying(true);
     setIsPlanOpen(false);
     setOpenGroupKey(findGroupKeyForIndex(safeIndex));
@@ -310,7 +343,7 @@ export default function BibleWebStartPage() {
         playerVars: {
           autoplay: 1,
           controls: 1,
-          playsinline: 1,
+          playsinline: 0,
           rel: 0,
           start: Math.floor(progress.seconds),
         },
@@ -322,6 +355,7 @@ export default function BibleWebStartPage() {
           },
           onStateChange: (event) => {
             if (event.data === window.YT?.PlayerState.PLAYING) {
+              requestVideoFullscreen();
               setIsPlaying(true);
               saveProgress(event.target, activeIndexRef.current, completedDaysRef.current);
             }
@@ -382,8 +416,8 @@ export default function BibleWebStartPage() {
 
   return (
     <main className="min-h-screen bg-black text-white">
-      <section className="relative mx-auto flex min-h-screen w-full max-w-none flex-col overflow-hidden">
-        <div className="pointer-events-none absolute left-3 top-3 z-10 max-w-[78vw] rounded-md bg-black/70 px-3 py-2 backdrop-blur">
+      <section className="relative mx-auto flex min-h-screen w-full max-w-none flex-col overflow-hidden" onClick={revealChrome}>
+        <div className={`pointer-events-none absolute left-3 top-3 z-10 max-w-[78vw] rounded-md bg-black/70 px-3 py-2 backdrop-blur transition-opacity duration-300 ${shouldHideChrome ? "opacity-0" : "opacity-100"}`}>
           <p className="text-[11px] font-extrabold text-emerald-300 sm:text-xs">
             XC-220 성경통독 거치대
           </p>
@@ -400,7 +434,7 @@ export default function BibleWebStartPage() {
 
         <div className="flex min-h-screen w-full items-start justify-center bg-black">
           <div className="w-full bg-black">
-            <div className="relative aspect-video w-full">
+            <div id="youtube-shell" className="relative aspect-video w-full">
               <div id="youtube-player" className="absolute inset-0 h-full w-full" />
               {(!isReady || !isPlaying) && (
                 <button
@@ -423,7 +457,7 @@ export default function BibleWebStartPage() {
           </div>
         </div>
 
-        <div className="fixed right-3 top-1/2 z-20 flex w-[128px] -translate-y-1/2 flex-col gap-2 sm:right-5 sm:w-[154px]">
+        <div className={`fixed right-3 top-1/2 z-20 flex w-[128px] -translate-y-1/2 flex-col gap-2 transition-opacity duration-300 sm:right-5 sm:w-[154px] ${shouldHideChrome ? "pointer-events-none opacity-0" : "opacity-100"}`}>
           <button
             className="flex w-full items-center justify-center rounded-lg bg-white/90 px-3 py-3 text-center text-xs font-black text-black shadow-xl shadow-black/50"
             type="button"
@@ -441,12 +475,14 @@ export default function BibleWebStartPage() {
           >
             읽기표 / 시작 선택
           </button>
-          <a
-            className="flex w-full items-center justify-center rounded-lg bg-emerald-500 px-3 py-3 text-center text-xs font-black text-white shadow-xl shadow-black/50 no-underline"
-            href={playStoreUrl}
-          >
-            앱 다운로드
-          </a>
+          {!isXcanApp && (
+            <a
+              className="flex w-full items-center justify-center rounded-lg bg-emerald-500 px-3 py-3 text-center text-xs font-black text-white shadow-xl shadow-black/50 no-underline"
+              href={playStoreUrl}
+            >
+              앱 다운로드
+            </a>
+          )}
         </div>
 
         {isPlanOpen && (
@@ -482,7 +518,7 @@ export default function BibleWebStartPage() {
                 ).length;
                 const dayLabel =
                   group.startDay === group.endDay
-                    ? `${group.startDay}일차부터`
+                    ? `${group.startDay}일차`
                     : `${group.startDay}-${group.endDay}일차`;
 
                 return (
@@ -538,7 +574,7 @@ export default function BibleWebStartPage() {
                                   });
                                 }}
                               >
-                                {isCompleted ? "완" : video.day}
+                                {isCompleted ? "✓" : video.day}
                               </button>
                               <button
                                 className="min-w-0 text-left"
