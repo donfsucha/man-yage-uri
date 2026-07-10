@@ -47,6 +47,7 @@ type YouTubePlayer = {
   }) => void;
   getCurrentTime: () => number;
   getPlayerState: () => number;
+  setPlaybackRate?: (rate: number) => void;
   destroy?: () => void;
 };
 
@@ -72,6 +73,8 @@ declare global {
       };
     };
     onYouTubeIframeAPIReady?: () => void;
+    androidSpeed?: number;
+    xcanSetPlaybackRate?: (rate: number) => void;
   }
 }
 
@@ -182,8 +185,18 @@ function playBibleVideo(player: YouTubePlayer, video: KoreanBibleVideo, seconds:
 function playCurrentVideo(player: YouTubePlayer | null) {
   requestVideoFullscreen();
   if (typeof player?.playVideo === "function") {
+    applyYoutubePlaybackRate(player);
     player.playVideo();
   }
+}
+
+function applyYoutubePlaybackRate(player: YouTubePlayer | null, requestedRate?: number) {
+  const rate = Number(
+    requestedRate ?? (typeof window !== "undefined" ? window.androidSpeed : undefined) ?? 1,
+  );
+
+  if (!Number.isFinite(rate) || rate <= 0) return;
+  player?.setPlaybackRate?.(rate);
 }
 
 function saveProgressSnapshot(progress: SavedProgress) {
@@ -259,6 +272,16 @@ export default function BibleWebStartPage() {
   }, [isPlaying, isXcanApp]);
 
   useEffect(() => {
+    window.xcanSetPlaybackRate = (rate: number) => {
+      applyYoutubePlaybackRate(playerRef.current, rate);
+    };
+
+    return () => {
+      window.xcanSetPlaybackRate = undefined;
+    };
+  }, []);
+
+  useEffect(() => {
     const timer = window.setTimeout(() => {
       setIsXcanApp(Boolean(window.AndroidBot));
     }, 0);
@@ -321,6 +344,7 @@ export default function BibleWebStartPage() {
 
     if (playerRef.current) {
       playBibleVideo(playerRef.current, video, seconds);
+      applyYoutubePlaybackRate(playerRef.current);
     }
   };
 
@@ -351,11 +375,13 @@ export default function BibleWebStartPage() {
           onReady: (event) => {
             playerRef.current = event.target;
             playBibleVideo(event.target, initialVideo, progress.seconds);
+            applyYoutubePlaybackRate(event.target);
             setIsReady(true);
           },
           onStateChange: (event) => {
             if (event.data === window.YT?.PlayerState.PLAYING) {
               requestVideoFullscreen();
+              applyYoutubePlaybackRate(event.target);
               setIsPlaying(true);
               saveProgress(event.target, activeIndexRef.current, completedDaysRef.current);
             }
@@ -475,14 +501,12 @@ export default function BibleWebStartPage() {
           >
             읽기표 / 시작 선택
           </button>
-          {!isXcanApp && (
-            <a
-              className="flex w-full items-center justify-center rounded-lg bg-emerald-500 px-3 py-3 text-center text-xs font-black text-white shadow-xl shadow-black/50 no-underline"
-              href={playStoreUrl}
-            >
-              앱 다운로드
-            </a>
-          )}
+          <a
+            className="flex w-full items-center justify-center rounded-lg bg-emerald-500 px-3 py-3 text-center text-xs font-black text-white shadow-xl shadow-black/50 no-underline"
+            href={playStoreUrl}
+          >
+            앱 다운로드
+          </a>
         </div>
 
         {isPlanOpen && (
@@ -518,7 +542,7 @@ export default function BibleWebStartPage() {
                 ).length;
                 const dayLabel =
                   group.startDay === group.endDay
-                    ? `${group.startDay}일차`
+                    ? `${group.startDay}일차부터`
                     : `${group.startDay}-${group.endDay}일차`;
 
                 return (
@@ -574,7 +598,7 @@ export default function BibleWebStartPage() {
                                   });
                                 }}
                               >
-                                {isCompleted ? "✓" : video.day}
+                                {isCompleted ? "완" : video.day}
                               </button>
                               <button
                                 className="min-w-0 text-left"

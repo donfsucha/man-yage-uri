@@ -27,6 +27,7 @@ type YouTubePlayer = {
   }) => void;
   getCurrentTime: () => number;
   getPlayerState: () => number;
+  setPlaybackRate?: (rate: number) => void;
   destroy?: () => void;
 };
 
@@ -52,6 +53,8 @@ declare global {
       };
     };
     onYouTubeIframeAPIReady?: () => void;
+    androidSpeed?: number;
+    xcanSetPlaybackRate?: (rate: number) => void;
   }
 }
 
@@ -77,6 +80,15 @@ function loadSavedProgress(): SavedProgress {
   } catch {
     return { index: 0, seconds: 0, updatedAt: "" };
   }
+}
+
+function applyYoutubePlaybackRate(player: YouTubePlayer | null, requestedRate?: number) {
+  const rate = Number(
+    requestedRate ?? (typeof window !== "undefined" ? window.androidSpeed : undefined) ?? 1,
+  );
+
+  if (!Number.isFinite(rate) || rate <= 0) return;
+  player?.setPlaybackRate?.(rate);
 }
 
 function saveProgress(player: YouTubePlayer, index: number) {
@@ -113,6 +125,16 @@ export default function EnglishBibleWebStartPage() {
       chromeTimerRef.current = window.setTimeout(() => setShowChrome(false), 3200);
     }
   }, [isPlaying, isXcanApp]);
+
+  useEffect(() => {
+    window.xcanSetPlaybackRate = (rate: number) => {
+      applyYoutubePlaybackRate(playerRef.current, rate);
+    };
+
+    return () => {
+      window.xcanSetPlaybackRate = undefined;
+    };
+  }, []);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -153,15 +175,18 @@ export default function EnglishBibleWebStartPage() {
         },
         events: {
           onReady: (event) => {
+            playerRef.current = event.target;
             event.target.loadVideoById({
               videoId: currentVideo.videoId,
               startSeconds: progress.seconds,
             });
+            applyYoutubePlaybackRate(event.target);
             setIsReady(true);
           },
           onStateChange: (event) => {
             if (event.data === window.YT?.PlayerState.PLAYING) {
               requestVideoFullscreen();
+              applyYoutubePlaybackRate(event.target);
               setIsPlaying(true);
               saveProgress(event.target, activeIndex);
             }
@@ -246,6 +271,7 @@ export default function EnglishBibleWebStartPage() {
                   type="button"
                   onClick={() => {
                     requestVideoFullscreen();
+                    applyYoutubePlaybackRate(playerRef.current);
                     playerRef.current?.playVideo?.();
                     setIsPlaying(true);
                   }}
@@ -273,21 +299,20 @@ export default function EnglishBibleWebStartPage() {
                 videoId: englishBibleVideos[0].videoId,
                 startSeconds: 0,
               });
+              applyYoutubePlaybackRate(playerRef.current);
               setSavedProgress({ index: 0, seconds: 0, updatedAt: "" });
               setIsPlaying(true);
             }}
           >
             Genesis 다시보기
           </button>
-          {!isXcanApp && (
-            <a
-              className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-3 text-center text-sm font-black text-white shadow-xl shadow-black/50 no-underline"
-              href={playStoreUrl}
-            >
-              <span aria-hidden="true">↓</span>
-              앱 다운로드
-            </a>
-          )}
+          <a
+            className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-3 text-center text-sm font-black text-white shadow-xl shadow-black/50 no-underline"
+            href={playStoreUrl}
+          >
+            <span aria-hidden="true">↓</span>
+            앱 다운로드
+          </a>
         </div>
       </section>
     </main>
