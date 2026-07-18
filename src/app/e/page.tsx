@@ -4,9 +4,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { requestVideoFullscreen } from "@/lib/xcan/fullscreen";
 import { englishBibleProgressKey, englishBibleVideos } from "@/lib/xcan/bible-reading";
 
-const playStoreUrl =
-  "https://play.google.com/store/apps/details?id=com.cnanfc.xcanplayer&pcampaignid=web_share";
-
 type SavedProgress = {
   index: number;
   seconds: number;
@@ -15,10 +12,7 @@ type SavedProgress = {
 
 type YouTubePlayer = {
   playVideo?: () => void;
-  loadVideoById: (options: {
-    videoId: string;
-    startSeconds?: number;
-  }) => void;
+  loadVideoById: (options: { videoId: string; startSeconds?: number }) => void;
   loadPlaylist?: (options: {
     list: string;
     listType: "playlist";
@@ -49,30 +43,46 @@ declare global {
           };
         },
       ) => YouTubePlayer;
-      PlayerState: {
-        ENDED: number;
-        PLAYING: number;
-      };
+      PlayerState: { ENDED: number; PLAYING: number };
     };
     onYouTubeIframeAPIReady?: () => void;
     androidSpeed?: number;
     xcanSetPlaybackRate?: (rate: number) => void;
+    xcanOpenEnglishReadingPlan?: () => void;
   }
 }
 
+const oldTestamentBooks = new Set([
+  "Genesis",
+  "Exodus",
+  "Leviticus",
+  "Numbers",
+  "Deuteronomy",
+  "Joshua",
+  "Judges",
+  "Ruth",
+  "2 Samuel",
+  "1 Chronicles",
+  "2 Chronicles",
+  "Psalms",
+  "Proverbs",
+  "Ecclesiastes",
+  "Daniel",
+]);
+
+const emptyProgress: SavedProgress = { index: 0, seconds: 0, updatedAt: "" };
+
 function loadSavedProgress(): SavedProgress {
-  if (typeof window === "undefined") {
-    return { index: 0, seconds: 0, updatedAt: "" };
-  }
+  if (typeof window === "undefined") return emptyProgress;
 
   try {
     const saved = window.localStorage.getItem(englishBibleProgressKey);
-    if (!saved) return { index: 0, seconds: 0, updatedAt: "" };
+    if (!saved) return emptyProgress;
 
     const parsed = JSON.parse(saved) as Partial<SavedProgress>;
-    const parsedIndex = Number(parsed.index);
     const maxIndex = englishBibleVideos.length - 1;
-    const safeIndex = Number.isFinite(parsedIndex) ? parsedIndex : 0;
+    const parsedIndex = Number(parsed.index);
+    const safeIndex = Number.isFinite(parsedIndex) ? Math.floor(parsedIndex) : 0;
 
     return {
       index: Math.min(maxIndex, Math.max(0, safeIndex)),
@@ -80,8 +90,12 @@ function loadSavedProgress(): SavedProgress {
       updatedAt: String(parsed.updatedAt || ""),
     };
   } catch {
-    return { index: 0, seconds: 0, updatedAt: "" };
+    return emptyProgress;
   }
+}
+
+function saveProgressSnapshot(progress: SavedProgress) {
+  window.localStorage.setItem(englishBibleProgressKey, JSON.stringify(progress));
 }
 
 function disableYoutubeCaptions(player: YouTubePlayer | null) {
@@ -93,37 +107,26 @@ function applyYoutubePlaybackRate(player: YouTubePlayer | null, requestedRate?: 
   const rate = Number(
     requestedRate ?? (typeof window !== "undefined" ? window.androidSpeed : undefined) ?? 1,
   );
-
   if (!Number.isFinite(rate) || rate <= 0) return;
   player?.setPlaybackRate?.(rate);
 }
 
-function saveProgress(player: YouTubePlayer, index: number) {
-  const seconds = Math.max(0, Math.floor(player.getCurrentTime?.() ?? 0));
-
-  window.localStorage.setItem(
-    englishBibleProgressKey,
-    JSON.stringify({
-      index,
-      seconds,
-      updatedAt: new Date().toISOString(),
-    }),
-  );
+function requestEnglishFullscreen() {
+  requestVideoFullscreen("xcan-english-player-shell");
 }
 
 export default function EnglishBibleWebStartPage() {
   const playerRef = useRef<YouTubePlayer | null>(null);
+  const activeIndexRef = useRef(0);
   const saveTimerRef = useRef<number | null>(null);
-  const [savedProgress, setSavedProgress] = useState<SavedProgress>({
-    index: 0,
-    seconds: 0,
-    updatedAt: "",
-  });
+  const chromeTimerRef = useRef<number | null>(null);
+  const [savedProgress, setSavedProgress] = useState<SavedProgress>(emptyProgress);
   const [isReady, setIsReady] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [showChrome, setShowChrome] = useState(true);
   const [isXcanApp, setIsXcanApp] = useState(false);
-  const chromeTimerRef = useRef<number | null>(null);
+  const [isPlanOpen, setIsPlanOpen] = useState(false);
+  const [openGroupKey, setOpenGroupKey] = useState<"old" | "new">("old");
 
   const revealChrome = useCallback(() => {
     setShowChrome(true);
@@ -133,27 +136,49 @@ export default function EnglishBibleWebStartPage() {
     }
   }, [isPlaying, isXcanApp]);
 
+  const setProgress = (progress: SavedProgress) => {
+    activeIndexRef.current = progress.index;
+    setSavedProgress(progress);
+    saveProgressSnapshot(progress);
+  };
+
+  const startAtIndex = (index: number, seconds = 0) => {
+    const safeIndex = Math.min(englishBibleVideos.length - 1, Math.max(0, index));
+    const video = englishBibleVideos[safeIndex] ?? englishBibleVideos[0];
+    const progress = {
+      index: safeIndex,
+      seconds,
+      updatedAt: new Date().toISOString(),
+    };
+
+    setProgress(progress);
+    setOpenGroupKey(oldTestamentBooks.has(video.book) ? "old" : "new");
+    setIsPlanOpen(false);
+    setIsPlaying(true);
+    requestEnglishFullscreen();
+
+    if (playerRef.current) {
+      playerRef.current.loadVideoById({ videoId: video.videoId, startSeconds: seconds });
+      applyYoutubePlaybackRate(playerRef.current);
+      disableYoutubeCaptions(playerRef.current);
+    }
+  };
+
   useEffect(() => {
     window.xcanSetPlaybackRate = (rate: number) => {
       applyYoutubePlaybackRate(playerRef.current, rate);
     };
-
     return () => {
       window.xcanSetPlaybackRate = undefined;
     };
   }, []);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setIsXcanApp(Boolean(window.AndroidBot));
-    }, 0);
-
-    return () => window.clearTimeout(timer);
+    setIsXcanApp(Boolean(window.AndroidBot));
   }, []);
 
   useEffect(() => {
     if (!isXcanApp) return undefined;
-
     const timer = window.setTimeout(revealChrome, 0);
     return () => {
       window.clearTimeout(timer);
@@ -162,15 +187,36 @@ export default function EnglishBibleWebStartPage() {
   }, [isPlaying, isXcanApp, revealChrome]);
 
   useEffect(() => {
+    window.xcanOpenEnglishReadingPlan = () => {
+      const current = englishBibleVideos[activeIndexRef.current] ?? englishBibleVideos[0];
+      setOpenGroupKey(oldTestamentBooks.has(current.book) ? "old" : "new");
+      setIsPlanOpen(true);
+      setShowChrome(true);
+    };
+
+    if (new URLSearchParams(window.location.search).get("openPlan") === "1") {
+      window.xcanOpenEnglishReadingPlan();
+    }
+
+    return () => {
+      window.xcanOpenEnglishReadingPlan = undefined;
+    };
+  }, []);
+
+  useEffect(() => {
     const progress = loadSavedProgress();
-    let activeIndex = progress.index;
-    window.setTimeout(() => setSavedProgress(progress), 0);
+    activeIndexRef.current = progress.index;
+    window.setTimeout(() => {
+      setSavedProgress(progress);
+      const current = englishBibleVideos[progress.index] ?? englishBibleVideos[0];
+      setOpenGroupKey(oldTestamentBooks.has(current.book) ? "old" : "new");
+    }, 0);
 
     window.onYouTubeIframeAPIReady = () => {
-      const currentVideo = englishBibleVideos[activeIndex] ?? englishBibleVideos[0];
+      const initialVideo = englishBibleVideos[activeIndexRef.current] ?? englishBibleVideos[0];
 
       playerRef.current = new window.YT!.Player("youtube-player", {
-        videoId: currentVideo.videoId,
+        videoId: initialVideo.videoId,
         width: "100%",
         height: "100%",
         playerVars: {
@@ -187,7 +233,7 @@ export default function EnglishBibleWebStartPage() {
           onReady: (event) => {
             playerRef.current = event.target;
             event.target.loadVideoById({
-              videoId: currentVideo.videoId,
+              videoId: initialVideo.videoId,
               startSeconds: progress.seconds,
             });
             applyYoutubePlaybackRate(event.target);
@@ -196,29 +242,29 @@ export default function EnglishBibleWebStartPage() {
           },
           onStateChange: (event) => {
             if (event.data === window.YT?.PlayerState.PLAYING) {
-              requestVideoFullscreen();
+              requestEnglishFullscreen();
               applyYoutubePlaybackRate(event.target);
               disableYoutubeCaptions(event.target);
               setIsPlaying(true);
-              saveProgress(event.target, activeIndex);
+              saveProgressSnapshot({
+                index: activeIndexRef.current,
+                seconds: Math.max(0, Math.floor(event.target.getCurrentTime?.() ?? 0)),
+                updatedAt: new Date().toISOString(),
+              });
             }
 
             if (event.data === window.YT?.PlayerState.ENDED) {
-              const nextIndex = Math.min(activeIndex + 1, englishBibleVideos.length - 1);
-              activeIndex = nextIndex;
-              window.localStorage.setItem(
-                englishBibleProgressKey,
-                JSON.stringify({
-                  index: nextIndex,
-                  seconds: 0,
-                  updatedAt: new Date().toISOString(),
-                }),
-              );
-              setSavedProgress({ index: nextIndex, seconds: 0, updatedAt: new Date().toISOString() });
-              event.target.loadVideoById({
-                videoId: englishBibleVideos[nextIndex].videoId,
-                startSeconds: 0,
-              });
+              const currentIndex = activeIndexRef.current;
+              if (currentIndex >= englishBibleVideos.length - 1) {
+                setIsPlaying(false);
+                setProgress({ index: currentIndex, seconds: 0, updatedAt: new Date().toISOString() });
+                return;
+              }
+
+              const nextIndex = currentIndex + 1;
+              const nextVideo = englishBibleVideos[nextIndex];
+              setProgress({ index: nextIndex, seconds: 0, updatedAt: new Date().toISOString() });
+              event.target.loadVideoById({ videoId: nextVideo.videoId, startSeconds: 0 });
             }
           },
         },
@@ -228,7 +274,6 @@ export default function EnglishBibleWebStartPage() {
     const existingScript = document.querySelector<HTMLScriptElement>(
       'script[src="https://www.youtube.com/iframe_api"]',
     );
-
     if (window.YT?.Player) {
       window.onYouTubeIframeAPIReady();
     } else if (!existingScript) {
@@ -238,10 +283,13 @@ export default function EnglishBibleWebStartPage() {
     }
 
     saveTimerRef.current = window.setInterval(() => {
-      if (!playerRef.current) return;
-      if (playerRef.current.getPlayerState?.() === window.YT?.PlayerState.PLAYING) {
-        saveProgress(playerRef.current, activeIndex);
-      }
+      const player = playerRef.current;
+      if (!player || player.getPlayerState?.() !== window.YT?.PlayerState.PLAYING) return;
+      saveProgressSnapshot({
+        index: activeIndexRef.current,
+        seconds: Math.max(0, Math.floor(player.getCurrentTime?.() ?? 0)),
+        updatedAt: new Date().toISOString(),
+      });
     }, 5000);
 
     return () => {
@@ -252,16 +300,41 @@ export default function EnglishBibleWebStartPage() {
   }, []);
 
   const currentVideo = englishBibleVideos[savedProgress.index] ?? englishBibleVideos[0];
-  const shouldHideChrome = isXcanApp && isPlaying && !showChrome;
+  const shouldHideChrome = isXcanApp && isPlaying && !showChrome && !isPlanOpen;
   const startLabel =
     savedProgress.index > 0 || savedProgress.seconds > 0
       ? `${currentVideo.book} ${Math.floor(savedProgress.seconds / 60)}분부터 이어보기`
       : "Genesis부터 영어성경 시작";
 
+  const groups = [
+    {
+      key: "old" as const,
+      label: "구약",
+      items: englishBibleVideos
+        .map((video, index) => ({ video, index }))
+        .filter(({ video }) => oldTestamentBooks.has(video.book)),
+    },
+    {
+      key: "new" as const,
+      label: "신약",
+      items: englishBibleVideos
+        .map((video, index) => ({ video, index }))
+        .filter(({ video }) => !oldTestamentBooks.has(video.book)),
+    },
+  ];
+
   return (
     <main className="min-h-screen bg-black text-white">
-      <section className="relative mx-auto flex min-h-screen w-full max-w-none flex-col overflow-hidden" onClick={revealChrome}>
-        <div className={`pointer-events-none absolute left-3 top-3 z-10 rounded-md bg-black/65 px-3 py-2 backdrop-blur transition-opacity duration-300 ${shouldHideChrome ? "opacity-0" : "opacity-100"}`}>
+      <section
+        id="xcan-english-player-shell"
+        className="relative mx-auto flex min-h-screen w-full max-w-none flex-col overflow-hidden"
+        onClick={revealChrome}
+      >
+        <div
+          className={`pointer-events-none absolute left-3 top-3 z-10 max-w-[72vw] rounded-md bg-black/70 px-3 py-2 backdrop-blur transition-opacity duration-300 ${
+            shouldHideChrome ? "opacity-0" : "opacity-100"
+          }`}
+        >
           <p className="text-[11px] font-extrabold text-sky-300 sm:text-xs">
             XC-220 성경통독 거치대
           </p>
@@ -282,8 +355,9 @@ export default function EnglishBibleWebStartPage() {
                   className="absolute inset-0 flex h-full w-full flex-col items-center justify-center gap-3 bg-black/45 px-6 text-center"
                   type="button"
                   onClick={() => {
-                    requestVideoFullscreen();
+                    requestEnglishFullscreen();
                     applyYoutubePlaybackRate(playerRef.current);
+                    disableYoutubeCaptions(playerRef.current);
                     playerRef.current?.playVideo?.();
                     setIsPlaying(true);
                   }}
@@ -300,32 +374,109 @@ export default function EnglishBibleWebStartPage() {
           </div>
         </div>
 
-        <div className={`fixed right-3 top-1/2 z-20 flex w-[132px] -translate-y-1/2 flex-col gap-2 transition-opacity duration-300 sm:right-5 sm:w-[160px] ${shouldHideChrome ? "pointer-events-none opacity-0" : "opacity-100"}`}>
+        {!isXcanApp && (
           <button
-            className="flex w-full items-center justify-center rounded-lg bg-white/90 px-3 py-3 text-center text-xs font-black text-black shadow-xl shadow-black/50"
+            aria-label="영어성경 읽기표 열기"
+            className="fixed right-2 top-1/2 z-20 -translate-y-1/2 rounded-md bg-sky-500/95 px-3 py-3 text-xs font-black text-white shadow-lg shadow-black/50"
             type="button"
             onClick={() => {
-              window.localStorage.removeItem(englishBibleProgressKey);
-              requestVideoFullscreen();
-              playerRef.current?.loadVideoById({
-                videoId: englishBibleVideos[0].videoId,
-                startSeconds: 0,
-              });
-              applyYoutubePlaybackRate(playerRef.current);
-              setSavedProgress({ index: 0, seconds: 0, updatedAt: "" });
-              setIsPlaying(true);
+              setOpenGroupKey(oldTestamentBooks.has(currentVideo.book) ? "old" : "new");
+              setIsPlanOpen(true);
             }}
           >
-            Genesis 다시보기
+            읽기표
           </button>
-          <a
-            className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-3 text-center text-sm font-black text-white shadow-xl shadow-black/50 no-underline"
-            href={playStoreUrl}
-          >
-            <span aria-hidden="true">↓</span>
-            앱 다운로드
-          </a>
-        </div>
+        )}
+
+        {isPlanOpen && (
+          <div className="fixed inset-x-0 bottom-0 z-30 border-t border-white/15 bg-zinc-950/96 px-3 pb-4 pt-3 text-white shadow-2xl shadow-black backdrop-blur sm:left-auto sm:right-4 sm:bottom-4 sm:w-[440px] sm:rounded-lg sm:border">
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs font-extrabold text-sky-300">English Bible Reading Plan</p>
+                <h2 className="text-lg font-black">영어성경 시작 위치 선택</h2>
+                <p className="mt-1 text-xs font-bold text-white/65">
+                  현재 제공되는 영어 영상 {englishBibleVideos.length}권 중에서 선택하세요.
+                </p>
+              </div>
+              <button
+                className="min-w-16 shrink-0 whitespace-nowrap rounded-md bg-white/10 px-3 py-2 text-xs font-black text-white"
+                type="button"
+                onClick={() => setIsPlanOpen(false)}
+              >
+                닫기
+              </button>
+            </div>
+
+            <div className="mb-3 rounded-md bg-white/8 px-3 py-2 text-xs font-bold text-white/80">
+              현재 위치: {currentVideo.book} · {Math.floor(savedProgress.seconds / 60)}분
+            </div>
+
+            <div className="max-h-[50vh] overflow-y-auto pr-1">
+              {groups.map((group) => {
+                const isOpen = openGroupKey === group.key;
+                return (
+                  <section className="mb-2 rounded-lg border border-white/10 bg-white/5" key={group.key}>
+                    <button
+                      aria-expanded={isOpen}
+                      className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left"
+                      type="button"
+                      onClick={() => setOpenGroupKey(group.key)}
+                    >
+                      <span>
+                        <span className="block text-base font-black">{group.label}</span>
+                        <span className="block text-xs font-bold text-white/60">
+                          제공 영상 {group.items.length}권
+                        </span>
+                      </span>
+                      <span className="rounded-md bg-white/10 px-3 py-2 text-xs font-black">
+                        {isOpen ? "펼침" : "열기"}
+                      </span>
+                    </button>
+
+                    {isOpen && (
+                      <div className="border-t border-white/10 px-2 py-2">
+                        {group.items.map(({ video, index }) => {
+                          const isCurrent = index === savedProgress.index;
+                          return (
+                            <div
+                              className={`mb-2 grid grid-cols-[36px_1fr_64px] items-center gap-2 rounded-md border px-2 py-2 last:mb-0 ${
+                                isCurrent
+                                  ? "border-sky-400 bg-sky-500/15"
+                                  : "border-white/10 bg-black/25"
+                              }`}
+                              key={video.videoId}
+                            >
+                              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-xs font-black text-white/75">
+                                {index + 1}
+                              </span>
+                              <button
+                                className="min-w-0 text-left"
+                                type="button"
+                                onClick={() => startAtIndex(index, 0)}
+                              >
+                                <span className="block truncate text-sm font-black">{video.book}</span>
+                                <span className="block truncate text-[11px] font-bold text-white/55">
+                                  {video.title}
+                                </span>
+                              </button>
+                              <button
+                                className="rounded-md bg-white/15 px-2 py-2 text-xs font-black text-white"
+                                type="button"
+                                onClick={() => startAtIndex(index, 0)}
+                              >
+                                시작
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </section>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </section>
     </main>
   );

@@ -335,6 +335,10 @@ export default function BibleWebStartPage() {
       setShowChrome(true);
     };
 
+    if (new URLSearchParams(window.location.search).get("openPlan") === "1") {
+      window.xcanOpenReadingPlan();
+    }
+
     return () => {
       window.xcanOpenReadingPlan = undefined;
     };
