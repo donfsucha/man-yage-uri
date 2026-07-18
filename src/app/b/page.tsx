@@ -263,6 +263,7 @@ export default function BibleWebStartPage() {
   const saveTimerRef = useRef<number | null>(null);
   const activeIndexRef = useRef(0);
   const completedDaysRef = useRef<number[]>([]);
+  const planOpenRef = useRef(false);
   const [savedProgress, setSavedProgress] = useState<SavedProgress>(emptyProgress);
   const [isReady, setIsReady] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -315,7 +316,7 @@ export default function BibleWebStartPage() {
   );
 
   const currentVideo = koreanBibleVideos[savedProgress.index] ?? koreanBibleVideos[0];
-  const shouldHideChrome = isXcanApp && isPlaying && !showChrome;
+  const shouldHideChrome = isXcanApp && isPlaying && !showChrome && !isPlanOpen;
 
   const findGroupKeyForIndex = useCallback(
     (index: number) => {
@@ -331,6 +332,7 @@ export default function BibleWebStartPage() {
   useEffect(() => {
     window.xcanOpenReadingPlan = () => {
       setOpenGroupKey((value) => value ?? findGroupKeyForIndex(savedProgress.index));
+      planOpenRef.current = true;
       setIsPlanOpen(true);
       setShowChrome(true);
     };
@@ -362,6 +364,7 @@ export default function BibleWebStartPage() {
     };
 
     setProgress(nextProgress);
+    planOpenRef.current = false;
     requestVideoFullscreen("xcan-player-shell");
     setIsPlaying(true);
     setIsPlanOpen(false);
@@ -375,6 +378,8 @@ export default function BibleWebStartPage() {
 
   useEffect(() => {
     const progress = loadSavedProgress();
+    const planRequested = new URLSearchParams(window.location.search).get("openPlan") === "1";
+    planOpenRef.current = planRequested;
     activeIndexRef.current = progress.index;
     completedDaysRef.current = progress.completedDays;
     window.setTimeout(() => {
@@ -390,7 +395,7 @@ export default function BibleWebStartPage() {
         width: "100%",
         height: "100%",
         playerVars: {
-          autoplay: 1,
+          autoplay: planRequested ? 0 : 1,
           controls: 1,
           playsinline: 0,
           rel: 0,
@@ -402,13 +407,16 @@ export default function BibleWebStartPage() {
         events: {
           onReady: (event) => {
             playerRef.current = event.target;
-            playBibleVideo(event.target, initialVideo, progress.seconds);
+            if (!planRequested) {
+              playBibleVideo(event.target, initialVideo, progress.seconds);
+            }
             applyYoutubePlaybackRate(event.target);
             disableYoutubeCaptions(event.target);
             setIsReady(true);
           },
           onStateChange: (event) => {
             if (event.data === window.YT?.PlayerState.PLAYING) {
+              if (planOpenRef.current) return;
               requestVideoFullscreen("xcan-player-shell");
               applyYoutubePlaybackRate(event.target);
               disableYoutubeCaptions(event.target);
@@ -520,6 +528,7 @@ export default function BibleWebStartPage() {
             type="button"
             onClick={() => {
               setOpenGroupKey((value) => value ?? findGroupKeyForIndex(savedProgress.index));
+              planOpenRef.current = true;
               setIsPlanOpen(true);
             }}
           >
@@ -540,7 +549,10 @@ export default function BibleWebStartPage() {
               <button
                 className="min-w-16 shrink-0 whitespace-nowrap rounded-md bg-white/10 px-3 py-2 text-xs font-black text-white"
                 type="button"
-                onClick={() => setIsPlanOpen(false)}
+                onClick={() => {
+                  planOpenRef.current = false;
+                  setIsPlanOpen(false);
+                }}
               >
                 닫기
               </button>

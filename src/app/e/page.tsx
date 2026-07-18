@@ -118,6 +118,7 @@ function requestEnglishFullscreen() {
 export default function EnglishBibleWebStartPage() {
   const playerRef = useRef<YouTubePlayer | null>(null);
   const activeIndexRef = useRef(0);
+  const planOpenRef = useRef(false);
   const saveTimerRef = useRef<number | null>(null);
   const chromeTimerRef = useRef<number | null>(null);
   const [savedProgress, setSavedProgress] = useState<SavedProgress>(emptyProgress);
@@ -152,6 +153,7 @@ export default function EnglishBibleWebStartPage() {
     };
 
     setProgress(progress);
+    planOpenRef.current = false;
     setOpenGroupKey(oldTestamentBooks.has(video.book) ? "old" : "new");
     setIsPlanOpen(false);
     setIsPlaying(true);
@@ -190,6 +192,7 @@ export default function EnglishBibleWebStartPage() {
     window.xcanOpenEnglishReadingPlan = () => {
       const current = englishBibleVideos[activeIndexRef.current] ?? englishBibleVideos[0];
       setOpenGroupKey(oldTestamentBooks.has(current.book) ? "old" : "new");
+      planOpenRef.current = true;
       setIsPlanOpen(true);
       setShowChrome(true);
     };
@@ -205,6 +208,8 @@ export default function EnglishBibleWebStartPage() {
 
   useEffect(() => {
     const progress = loadSavedProgress();
+    const planRequested = new URLSearchParams(window.location.search).get("openPlan") === "1";
+    planOpenRef.current = planRequested;
     activeIndexRef.current = progress.index;
     window.setTimeout(() => {
       setSavedProgress(progress);
@@ -220,7 +225,7 @@ export default function EnglishBibleWebStartPage() {
         width: "100%",
         height: "100%",
         playerVars: {
-          autoplay: 1,
+          autoplay: planRequested ? 0 : 1,
           controls: 1,
           playsinline: 0,
           rel: 0,
@@ -232,16 +237,19 @@ export default function EnglishBibleWebStartPage() {
         events: {
           onReady: (event) => {
             playerRef.current = event.target;
-            event.target.loadVideoById({
-              videoId: initialVideo.videoId,
-              startSeconds: progress.seconds,
-            });
+            if (!planRequested) {
+              event.target.loadVideoById({
+                videoId: initialVideo.videoId,
+                startSeconds: progress.seconds,
+              });
+            }
             applyYoutubePlaybackRate(event.target);
             disableYoutubeCaptions(event.target);
             setIsReady(true);
           },
           onStateChange: (event) => {
             if (event.data === window.YT?.PlayerState.PLAYING) {
+              if (planOpenRef.current) return;
               requestEnglishFullscreen();
               applyYoutubePlaybackRate(event.target);
               disableYoutubeCaptions(event.target);
@@ -381,6 +389,7 @@ export default function EnglishBibleWebStartPage() {
             type="button"
             onClick={() => {
               setOpenGroupKey(oldTestamentBooks.has(currentVideo.book) ? "old" : "new");
+              planOpenRef.current = true;
               setIsPlanOpen(true);
             }}
           >
@@ -401,7 +410,10 @@ export default function EnglishBibleWebStartPage() {
               <button
                 className="min-w-16 shrink-0 whitespace-nowrap rounded-md bg-white/10 px-3 py-2 text-xs font-black text-white"
                 type="button"
-                onClick={() => setIsPlanOpen(false)}
+                onClick={() => {
+                  planOpenRef.current = false;
+                  setIsPlanOpen(false);
+                }}
               >
                 닫기
               </button>
