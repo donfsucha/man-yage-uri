@@ -28,6 +28,8 @@ type YouTubePlayer = {
   getCurrentTime: () => number;
   getPlayerState: () => number;
   setPlaybackRate?: (rate: number) => void;
+  setOption?: (module: string, option: string, value: unknown) => void;
+  unloadModule?: (module: string) => void;
   destroy?: () => void;
 };
 
@@ -80,6 +82,11 @@ function loadSavedProgress(): SavedProgress {
   } catch {
     return { index: 0, seconds: 0, updatedAt: "" };
   }
+}
+
+function disableYoutubeCaptions(player: YouTubePlayer | null) {
+  player?.setOption?.("captions", "track", {});
+  player?.unloadModule?.("captions");
 }
 
 function applyYoutubePlaybackRate(player: YouTubePlayer | null, requestedRate?: number) {
@@ -171,6 +178,9 @@ export default function EnglishBibleWebStartPage() {
           controls: 1,
           playsinline: 0,
           rel: 0,
+          origin: "https://ifwe.cnanfc.com",
+          cc_load_policy: 0,
+          iv_load_policy: 3,
           start: Math.floor(progress.seconds),
         },
         events: {
@@ -181,12 +191,14 @@ export default function EnglishBibleWebStartPage() {
               startSeconds: progress.seconds,
             });
             applyYoutubePlaybackRate(event.target);
+            disableYoutubeCaptions(event.target);
             setIsReady(true);
           },
           onStateChange: (event) => {
             if (event.data === window.YT?.PlayerState.PLAYING) {
               requestVideoFullscreen();
               applyYoutubePlaybackRate(event.target);
+              disableYoutubeCaptions(event.target);
               setIsPlaying(true);
               saveProgress(event.target, activeIndex);
             }

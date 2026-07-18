@@ -48,6 +48,8 @@ type YouTubePlayer = {
   getCurrentTime: () => number;
   getPlayerState: () => number;
   setPlaybackRate?: (rate: number) => void;
+  setOption?: (module: string, option: string, value: unknown) => void;
+  unloadModule?: (module: string) => void;
   destroy?: () => void;
 };
 
@@ -75,6 +77,7 @@ declare global {
     onYouTubeIframeAPIReady?: () => void;
     androidSpeed?: number;
     xcanSetPlaybackRate?: (rate: number) => void;
+    xcanOpenReadingPlan?: () => void;
   }
 }
 
@@ -182,10 +185,16 @@ function playBibleVideo(player: YouTubePlayer, video: KoreanBibleVideo, seconds:
   });
 }
 
+function disableYoutubeCaptions(player: YouTubePlayer | null) {
+  player?.setOption?.("captions", "track", {});
+  player?.unloadModule?.("captions");
+}
+
 function playCurrentVideo(player: YouTubePlayer | null) {
-  requestVideoFullscreen();
+  requestVideoFullscreen("xcan-player-shell");
   if (typeof player?.playVideo === "function") {
     applyYoutubePlaybackRate(player);
+    disableYoutubeCaptions(player);
     player.playVideo();
   }
 }
@@ -319,6 +328,18 @@ export default function BibleWebStartPage() {
     [bookGroups],
   );
 
+  useEffect(() => {
+    window.xcanOpenReadingPlan = () => {
+      setOpenGroupKey((value) => value ?? findGroupKeyForIndex(savedProgress.index));
+      setIsPlanOpen(true);
+      setShowChrome(true);
+    };
+
+    return () => {
+      window.xcanOpenReadingPlan = undefined;
+    };
+  }, [findGroupKeyForIndex, savedProgress.index]);
+
   const setProgress = (progress: SavedProgress) => {
     activeIndexRef.current = progress.index;
     completedDaysRef.current = progress.completedDays;
@@ -337,7 +358,7 @@ export default function BibleWebStartPage() {
     };
 
     setProgress(nextProgress);
-    requestVideoFullscreen();
+    requestVideoFullscreen("xcan-player-shell");
     setIsPlaying(true);
     setIsPlanOpen(false);
     setOpenGroupKey(findGroupKeyForIndex(safeIndex));
@@ -369,6 +390,9 @@ export default function BibleWebStartPage() {
           controls: 1,
           playsinline: 0,
           rel: 0,
+          origin: "https://ifwe.cnanfc.com",
+          cc_load_policy: 0,
+          iv_load_policy: 3,
           start: Math.floor(progress.seconds),
         },
         events: {
@@ -376,12 +400,14 @@ export default function BibleWebStartPage() {
             playerRef.current = event.target;
             playBibleVideo(event.target, initialVideo, progress.seconds);
             applyYoutubePlaybackRate(event.target);
+            disableYoutubeCaptions(event.target);
             setIsReady(true);
           },
           onStateChange: (event) => {
             if (event.data === window.YT?.PlayerState.PLAYING) {
-              requestVideoFullscreen();
+              requestVideoFullscreen("xcan-player-shell");
               applyYoutubePlaybackRate(event.target);
+              disableYoutubeCaptions(event.target);
               setIsPlaying(true);
               saveProgress(event.target, activeIndexRef.current, completedDaysRef.current);
             }
@@ -442,7 +468,7 @@ export default function BibleWebStartPage() {
 
   return (
     <main className="min-h-screen bg-black text-white">
-      <section className="relative mx-auto flex min-h-screen w-full max-w-none flex-col overflow-hidden" onClick={revealChrome}>
+      <section id="xcan-player-shell" className="relative mx-auto flex min-h-screen w-full max-w-none flex-col overflow-hidden" onClick={revealChrome}>
         <div className={`pointer-events-none absolute left-3 top-3 z-10 max-w-[78vw] rounded-md bg-black/70 px-3 py-2 backdrop-blur transition-opacity duration-300 ${shouldHideChrome ? "opacity-0" : "opacity-100"}`}>
           <p className="text-[11px] font-extrabold text-emerald-300 sm:text-xs">
             XC-220 성경통독 거치대
@@ -483,31 +509,19 @@ export default function BibleWebStartPage() {
           </div>
         </div>
 
-        <div className={`fixed right-3 top-1/2 z-20 flex w-[128px] -translate-y-1/2 flex-col gap-2 transition-opacity duration-300 sm:right-5 sm:w-[154px] ${shouldHideChrome ? "pointer-events-none opacity-0" : "opacity-100"}`}>
+        {!isXcanApp && (
           <button
-            className="flex w-full items-center justify-center rounded-lg bg-white/90 px-3 py-3 text-center text-xs font-black text-black shadow-xl shadow-black/50"
-            type="button"
-            onClick={() => startAtIndex(savedProgress.index, 0)}
-          >
-            금일 분량 다시보기
-          </button>
-          <button
-            className="flex w-full items-center justify-center rounded-lg bg-sky-500 px-3 py-3 text-center text-xs font-black text-white shadow-xl shadow-black/50"
+            aria-label="성경 읽기표 열기"
+            className="fixed right-2 top-1/2 z-20 -translate-y-1/2 rounded-md bg-sky-500/95 px-3 py-3 text-xs font-black text-white shadow-lg shadow-black/50"
             type="button"
             onClick={() => {
               setOpenGroupKey((value) => value ?? findGroupKeyForIndex(savedProgress.index));
-              setIsPlanOpen((value) => !value);
+              setIsPlanOpen(true);
             }}
           >
-            읽기표 / 시작 선택
+            읽기표
           </button>
-          <a
-            className="flex w-full items-center justify-center rounded-lg bg-emerald-500 px-3 py-3 text-center text-xs font-black text-white shadow-xl shadow-black/50 no-underline"
-            href={playStoreUrl}
-          >
-            앱 다운로드
-          </a>
-        </div>
+        )}
 
         {isPlanOpen && (
           <div className="fixed inset-x-0 bottom-0 z-30 border-t border-white/15 bg-zinc-950/96 px-3 pb-4 pt-3 text-white shadow-2xl shadow-black backdrop-blur sm:left-auto sm:right-4 sm:bottom-4 sm:w-[440px] sm:rounded-lg sm:border">

@@ -22,6 +22,8 @@ type YouTubePlayer = {
   getCurrentTime: () => number;
   getPlayerState: () => number;
   setPlaybackRate?: (rate: number) => void;
+  setOption?: (module: string, option: string, value: unknown) => void;
+  unloadModule?: (module: string) => void;
   destroy?: () => void;
 };
 
@@ -50,6 +52,11 @@ declare global {
     androidSpeed?: number;
     xcanSetPlaybackRate?: (rate: number) => void;
   }
+}
+
+function disableYoutubeCaptions(player: YouTubePlayer | null) {
+  player?.setOption?.("captions", "track", {});
+  player?.unloadModule?.("captions");
 }
 
 function applyYoutubePlaybackRate(player: YouTubePlayer | null, requestedRate?: number) {
@@ -112,21 +119,27 @@ export default function LivingLifeWebStartPage() {
         width: "100%",
         height: "100%",
         playerVars: {
-          autoplay: 0,
+          autoplay: 1,
           controls: 1,
           playsinline: 0,
           rel: 0,
+          origin: "https://ifwe.cnanfc.com",
+          cc_load_policy: 0,
+          iv_load_policy: 3,
         },
         events: {
           onReady: (event) => {
             playerRef.current = event.target;
             applyYoutubePlaybackRate(event.target);
+            disableYoutubeCaptions(event.target);
+            event.target.playVideo?.();
             setIsReady(true);
           },
           onStateChange: (event) => {
             if (event.data === window.YT?.PlayerState.PLAYING) {
               requestVideoFullscreen();
               applyYoutubePlaybackRate(event.target);
+              disableYoutubeCaptions(event.target);
               setIsPlaying(true);
             }
           },
