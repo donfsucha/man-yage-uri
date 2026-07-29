@@ -6,7 +6,6 @@ import {
   findKoreanBibleIndexByBook,
   findKoreanBibleIndexByDay,
   findKoreanBibleIndexByVideoId,
-  getKoreanBibleCompletionPercent,
   groupKoreanBibleVideosByBook,
   koreanBiblePlaylistId,
   koreanBibleProgressKey,
@@ -15,9 +14,6 @@ import {
   type KoreanBibleBookGroup,
   type KoreanBibleVideo,
 } from "@/lib/xcan/bible-reading";
-
-const playStoreUrl =
-  "https://play.google.com/store/apps/details?id=com.cnanfc.xcanplayer&pcampaignid=web_share";
 
 type SavedProgress = {
   index: number;
@@ -276,10 +272,10 @@ export default function BibleWebStartPage() {
   const revealChrome = useCallback(() => {
     setShowChrome(true);
     if (chromeTimerRef.current) window.clearTimeout(chromeTimerRef.current);
-    if (isPlaying && isXcanApp) {
+    if (isPlaying) {
       chromeTimerRef.current = window.setTimeout(() => setShowChrome(false), 3200);
     }
-  }, [isPlaying, isXcanApp]);
+  }, [isPlaying]);
 
   useEffect(() => {
     window.xcanSetPlaybackRate = (rate: number) => {
@@ -300,23 +296,17 @@ export default function BibleWebStartPage() {
   }, []);
 
   useEffect(() => {
-    if (!isXcanApp) return undefined;
-
     const timer = window.setTimeout(revealChrome, 0);
     return () => {
       window.clearTimeout(timer);
       if (chromeTimerRef.current) window.clearTimeout(chromeTimerRef.current);
     };
-  }, [isPlaying, isXcanApp, revealChrome]);
+  }, [isPlaying, revealChrome]);
 
   const bookGroups = useMemo(() => groupKoreanBibleVideosByBook(koreanBibleVideos), []);
-  const completedPercent = useMemo(
-    () => getKoreanBibleCompletionPercent(savedProgress.completedDays),
-    [savedProgress.completedDays],
-  );
 
   const currentVideo = koreanBibleVideos[savedProgress.index] ?? koreanBibleVideos[0];
-  const shouldHideChrome = isXcanApp && isPlaying && !showChrome && !isPlanOpen;
+  const shouldHideChrome = isPlaying && !showChrome && !isPlanOpen;
 
   const findGroupKeyForIndex = useCallback(
     (index: number) => {
@@ -480,21 +470,7 @@ export default function BibleWebStartPage() {
 
   return (
     <main className="min-h-screen bg-black text-white">
-      <section id="xcan-player-shell" className="relative mx-auto flex min-h-screen w-full max-w-none flex-col overflow-hidden" onClick={revealChrome}>
-        <div className={`pointer-events-none absolute left-3 top-3 z-10 max-w-[78vw] rounded-md bg-black/70 px-3 py-2 backdrop-blur transition-opacity duration-300 ${shouldHideChrome ? "opacity-0" : "opacity-100"}`}>
-          <p className="text-[11px] font-extrabold text-emerald-300 sm:text-xs">
-            XC-220 성경통독 거치대
-          </p>
-          <h1 className="mt-0.5 text-base font-black leading-tight tracking-normal sm:text-lg">
-            한글성경통독 이어보기
-          </h1>
-          <p className="mt-1 max-w-[280px] text-[11px] font-bold text-white/80 sm:text-xs">
-            {startLabel}
-          </p>
-          <p className="mt-1 text-[11px] font-bold text-white/70">
-            읽기표 {savedProgress.completedDays.length}/{koreanBibleVideos.length} · {completedPercent}%
-          </p>
-        </div>
+      <section id="xcan-player-shell" className="relative mx-auto flex min-h-screen w-full max-w-none flex-col overflow-hidden">
 
         <div className="flex min-h-screen w-full items-start justify-center bg-black">
           <div className="w-full bg-black">
@@ -521,10 +497,19 @@ export default function BibleWebStartPage() {
           </div>
         </div>
 
+        {!isXcanApp && shouldHideChrome && (
+          <button
+            aria-label="재생 화면 메뉴 표시"
+            className="fixed inset-0 z-10 cursor-default bg-transparent"
+            type="button"
+            onClick={revealChrome}
+          />
+        )}
+
         {!isXcanApp && (
           <button
             aria-label="성경 읽기표 열기"
-            className="fixed right-2 top-1/2 z-20 -translate-y-1/2 rounded-md bg-sky-500/95 px-3 py-3 text-xs font-black text-white shadow-lg shadow-black/50"
+            className={`fixed right-2 top-1/2 z-20 -translate-y-1/2 rounded-md bg-sky-500/95 px-3 py-3 text-xs font-black text-white shadow-lg shadow-black/50 transition-opacity duration-300 ${shouldHideChrome ? "pointer-events-none opacity-0" : "opacity-100"}`}
             type="button"
             onClick={() => {
               setOpenGroupKey((value) => value ?? findGroupKeyForIndex(savedProgress.index));
