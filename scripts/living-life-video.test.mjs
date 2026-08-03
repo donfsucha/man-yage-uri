@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -6,6 +9,15 @@ import {
 } from "./living-life-video.mjs";
 
 describe("Living Life video updater", () => {
+  it("keeps the Living Life page copy free of replacement question marks", () => {
+    const pageSource = readFileSync(
+      join(process.cwd(), "src", "app", "l", "page.tsx"),
+      "utf8",
+    );
+
+    expect(pageSource).not.toMatch(/\{"[^"\n]*\?{2,}[^"\n]*"\}/);
+  });
+
   it("selects the newest CGN Living Life QT video from the feed", () => {
     const feedXml = `<?xml version="1.0" encoding="UTF-8"?>
       <feed xmlns="http://www.w3.org/2005/Atom">

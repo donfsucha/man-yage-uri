@@ -186,10 +186,10 @@ export default function LivingLifeWebStartPage() {
           }`}
         >
           <p className="text-[11px] font-extrabold text-emerald-300 sm:text-xs">
-            {"XC-220 ???? ???"}
+            {"XC-220 \uC131\uACBD\uD1B5\uB3C5 \uAC70\uCE58\uB300"}
           </p>
           <h1 className="mt-0.5 text-base font-black leading-tight tracking-normal sm:text-lg">
-            {"??? ? ?? ?? ??"}
+            {"\uC0DD\uBA85\uC758 \uC0B6 \uC601\uC0C1 \uBC14\uB85C \uBCF4\uAE30"}
           </h1>
         </div>
 
@@ -204,10 +204,10 @@ export default function LivingLifeWebStartPage() {
                   onClick={startVideo}
                 >
                   <span className="rounded-full bg-emerald-500 px-6 py-4 text-xl font-black shadow-xl shadow-black/40">
-                    {"? ??? ? ??"}
+                    {"\u25B6 \uC0DD\uBA85\uC758 \uC0B6 \uC7AC\uC0DD"}
                   </span>
                   <span className="text-sm font-bold text-white/80">
-                    {"??? ?????? ?????."}
+                    {"\uB204\uB974\uBA74 \uC804\uCCB4\uD654\uBA74\uC73C\uB85C \uC2E4\uD589\uB429\uB2C8\uB2E4."}
                   </span>
                 </button>
               )}
@@ -224,8 +224,8 @@ export default function LivingLifeWebStartPage() {
             className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-3 text-center text-sm font-black text-white shadow-xl shadow-black/50 no-underline"
             href={playStoreUrl}
           >
-            <span aria-hidden="true">{"?"}</span>
-            {"? ????"}
+            <span aria-hidden="true">{"\u25BC"}</span>
+            {"\uC571 \uB2E4\uC6B4\uB85C\uB4DC"}
           </a>
         </div>
       </section>
