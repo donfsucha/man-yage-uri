@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { requestVideoFullscreen } from "@/lib/xcan/fullscreen";
 
-const youtubeVideoId = "d51ZtLVqSwA";
+const youtubeVideoId = "ragvRtrdS80";
 const playStoreUrl =
   "https://play.google.com/store/apps/details?id=com.cnanfc.xcanplayer&pcampaignid=web_share";
 
