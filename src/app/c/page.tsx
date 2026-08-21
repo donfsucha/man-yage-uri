@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { requestVideoFullscreen } from "@/lib/xcan/fullscreen";
+import { useScreenWakeLock } from "@/lib/xcan/use-screen-wake-lock";
 
 const ccmVideoId = "RsXtOHd4EpY";
 const prayerVideoId = "JSturTCAH1A";
@@ -75,6 +76,8 @@ export default function CcmPlayerPage() {
   const [title, setTitle] = useState("CCM 찬양");
   const chromeTimerRef = useRef<number | null>(null);
 
+  useScreenWakeLock(isReady);
+
   const revealChrome = useCallback(() => {
     setShowChrome(true);
     if (chromeTimerRef.current) window.clearTimeout(chromeTimerRef.current);
@@ -91,7 +94,9 @@ export default function CcmPlayerPage() {
     const params = new URLSearchParams(window.location.search);
     const isPrayer = params.get("mode") === "prayer";
     const selectedVideoId = isPrayer ? prayerVideoId : ccmVideoId;
-    setTitle(isPrayer ? "기도음악" : "CCM 찬양");
+    const titleTimer = window.setTimeout(() => {
+      setTitle(isPrayer ? "기도음악" : "CCM 찬양");
+    }, 0);
 
     window.onYouTubeIframeAPIReady = () => {
       playerRef.current = new window.YT!.Player("youtube-player", {
@@ -140,6 +145,7 @@ export default function CcmPlayerPage() {
     }
 
     return () => {
+      window.clearTimeout(titleTimer);
       if (chromeTimerRef.current) window.clearTimeout(chromeTimerRef.current);
       playerRef.current?.destroy?.();
       window.onYouTubeIframeAPIReady = undefined;

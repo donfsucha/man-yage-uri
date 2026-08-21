@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { requestVideoFullscreen } from "@/lib/xcan/fullscreen";
 import { englishBibleProgressKey, englishBibleVideos } from "@/lib/xcan/bible-reading";
+import { useScreenWakeLock } from "@/lib/xcan/use-screen-wake-lock";
 
 type SavedProgress = {
   index: number;
@@ -120,14 +121,18 @@ export default function EnglishBibleWebStartPage() {
   const activeIndexRef = useRef(0);
   const planOpenRef = useRef(false);
   const saveTimerRef = useRef<number | null>(null);
+  const playbackStateTimerRef = useRef<number | null>(null);
   const chromeTimerRef = useRef<number | null>(null);
   const [savedProgress, setSavedProgress] = useState<SavedProgress>(emptyProgress);
   const [isReady, setIsReady] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [hasStartedPlayback, setHasStartedPlayback] = useState(false);
   const [showChrome, setShowChrome] = useState(true);
   const [isXcanApp, setIsXcanApp] = useState(false);
   const [isPlanOpen, setIsPlanOpen] = useState(false);
   const [openGroupKey, setOpenGroupKey] = useState<"old" | "new">("old");
+
+  useScreenWakeLock(isReady || hasStartedPlayback);
 
   const revealChrome = useCallback(() => {
     setShowChrome(true);
@@ -157,6 +162,7 @@ export default function EnglishBibleWebStartPage() {
     setOpenGroupKey(oldTestamentBooks.has(video.book) ? "old" : "new");
     setIsPlanOpen(false);
     setIsPlaying(true);
+    setHasStartedPlayback(true);
     requestEnglishFullscreen();
 
     if (playerRef.current) {
@@ -176,7 +182,11 @@ export default function EnglishBibleWebStartPage() {
   }, []);
 
   useEffect(() => {
-    setIsXcanApp(Boolean(window.AndroidBot));
+    const timer = window.setTimeout(() => {
+      setIsXcanApp(Boolean(window.AndroidBot));
+    }, 0);
+
+    return () => window.clearTimeout(timer);
   }, []);
 
   useEffect(() => {
@@ -249,16 +259,20 @@ export default function EnglishBibleWebStartPage() {
           },
           onStateChange: (event) => {
             if (event.data === window.YT?.PlayerState.PLAYING) {
-              if (planOpenRef.current) return;
-              requestEnglishFullscreen();
+              setHasStartedPlayback(true);
+              setIsPlaying(true);
+              if (!planOpenRef.current) requestEnglishFullscreen();
               applyYoutubePlaybackRate(event.target);
               disableYoutubeCaptions(event.target);
-              setIsPlaying(true);
               saveProgressSnapshot({
                 index: activeIndexRef.current,
                 seconds: Math.max(0, Math.floor(event.target.getCurrentTime?.() ?? 0)),
                 updatedAt: new Date().toISOString(),
               });
+            }
+
+            if (event.data === 2) {
+              setIsPlaying(false);
             }
 
             if (event.data === window.YT?.PlayerState.ENDED) {
@@ -300,8 +314,22 @@ export default function EnglishBibleWebStartPage() {
       });
     }, 5000);
 
+    playbackStateTimerRef.current = window.setInterval(() => {
+      const player = playerRef.current;
+      if (
+        !planOpenRef.current &&
+        player?.getPlayerState?.() === window.YT?.PlayerState.PLAYING
+      ) {
+        setHasStartedPlayback(true);
+        setIsPlaying(true);
+      }
+    }, 500);
+
     return () => {
       if (saveTimerRef.current) window.clearInterval(saveTimerRef.current);
+      if (playbackStateTimerRef.current) {
+        window.clearInterval(playbackStateTimerRef.current);
+      }
       playerRef.current?.destroy?.();
       window.onYouTubeIframeAPIReady = undefined;
     };
@@ -358,7 +386,7 @@ export default function EnglishBibleWebStartPage() {
           <div className="w-full bg-black">
             <div id="youtube-shell" className="relative aspect-video w-full">
               <div id="youtube-player" className="absolute inset-0 h-full w-full" />
-              {(!isReady || !isPlaying) && (
+              {!hasStartedPlayback && (
                 <button
                   className="absolute inset-0 flex h-full w-full flex-col items-center justify-center gap-3 bg-black/45 px-6 text-center"
                   type="button"
@@ -368,6 +396,7 @@ export default function EnglishBibleWebStartPage() {
                     disableYoutubeCaptions(playerRef.current);
                     playerRef.current?.playVideo?.();
                     setIsPlaying(true);
+                    setHasStartedPlayback(true);
                   }}
                 >
                   <span className="rounded-full bg-sky-500 px-6 py-4 text-xl font-black shadow-xl shadow-black/40">

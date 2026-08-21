@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { requestVideoFullscreen } from "@/lib/xcan/fullscreen";
+import { useScreenWakeLock } from "@/lib/xcan/use-screen-wake-lock";
 import {
   findKoreanBibleIndexByBook,
   findKoreanBibleIndexByDay,
@@ -268,6 +269,8 @@ export default function BibleWebStartPage() {
   const [showChrome, setShowChrome] = useState(true);
   const [isXcanApp, setIsXcanApp] = useState(false);
   const chromeTimerRef = useRef<number | null>(null);
+
+  useScreenWakeLock(isReady);
 
   const revealChrome = useCallback(() => {
     setShowChrome(true);
