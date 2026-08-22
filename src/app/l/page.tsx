@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { requestVideoFullscreen } from "@/lib/xcan/fullscreen";
 import { useScreenWakeLock } from "@/lib/xcan/use-screen-wake-lock";
 
-const youtubeVideoId = "7vhswYkCM_c";
+const youtubeVideoId = "842x2W3FCoU";
 const playStoreUrl =
   "https://play.google.com/store/apps/details?id=com.cnanfc.xcanplayer&pcampaignid=web_share";
 
