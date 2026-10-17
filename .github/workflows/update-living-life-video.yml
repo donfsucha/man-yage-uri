@@ -2,12 +2,10 @@ name: Update Living Life video
 
 on:
   schedule:
-    # 00:30 and 08:00 Asia/Seoul.
+    # Daily at 00:05 Asia/Seoul, with a fallback check at 00:30.
+    # An already-current video skips installation, build, and commit.
+    - cron: "5 15 * * *"
     - cron: "30 15 * * *"
-    - cron: "0 23 * * *"
-    # Catch up every half hour from 00:17 through 07:47 Asia/Seoul.
-    # GitHub scheduled events can be delayed; these are additional attempts.
-    - cron: "17,47 15-22 * * *"
   workflow_dispatch:
 
 permissions:
