@@ -1,4 +1,5 @@
 import { readFileSync, writeFileSync } from "node:fs";
+import { setTimeout as wait } from "node:timers/promises";
 import { pathToFileURL } from "node:url";
 
 export const CGN_FEED_URL =
@@ -75,17 +76,37 @@ export function replaceYoutubeVideoId(source, videoId) {
   return nextSource;
 }
 
+async function fetchCgnFeed(fetchImpl, waitImpl) {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    let response;
+    try {
+      response = await fetchImpl(CGN_FEED_URL, {
+        signal: AbortSignal.timeout(15000),
+      });
+    } catch (error) {
+      if (attempt === 4) throw error;
+    }
+
+    if (response?.ok) return response.text();
+
+    if (response) {
+      // YouTube sometimes returns a temporary 404 for an existing channel feed.
+      const retryable = [404, 408, 429].includes(response.status) || response.status >= 500;
+      if (!retryable || attempt === 4) {
+        throw new Error(`Could not fetch CGN feed: HTTP ${response.status}`);
+      }
+    }
+
+    await waitImpl(1000 * 2 ** attempt);
+  }
+}
+
 export async function updateLivingLifeVideo({
   fetchImpl = fetch,
   pagePath = DEFAULT_PAGE_PATH,
+  waitImpl = wait,
 } = {}) {
-  const response = await fetchImpl(CGN_FEED_URL);
-
-  if (!response.ok) {
-    throw new Error(`Could not fetch CGN feed: HTTP ${response.status}`);
-  }
-
-  const latestVideo = findLatestLivingLifeVideo(await response.text());
+  const latestVideo = findLatestLivingLifeVideo(await fetchCgnFeed(fetchImpl, waitImpl));
   const currentSource = readFileSync(pagePath, "utf8");
   const nextSource = replaceYoutubeVideoId(currentSource, latestVideo.videoId);
 

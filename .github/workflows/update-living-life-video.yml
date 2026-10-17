@@ -5,6 +5,9 @@ on:
     # 00:30 and 08:00 Asia/Seoul.
     - cron: "30 15 * * *"
     - cron: "0 23 * * *"
+    # Catch up every half hour from 00:17 through 07:47 Asia/Seoul.
+    # GitHub scheduled events can be delayed; these are additional attempts.
+    - cron: "17,47 15-22 * * *"
   workflow_dispatch:
 
 permissions:
@@ -17,6 +20,7 @@ concurrency:
 jobs:
   update:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Check out main
@@ -30,9 +34,6 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Install dependencies
-        run: npm ci
-
       - name: Update Living Life video
         run: npm run update:living-life-video
 
@@ -45,6 +46,10 @@ jobs:
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Install dependencies
+        if: steps.changes.outputs.changed == 'true'
+        run: npm ci
 
       - name: Test updater
         if: steps.changes.outputs.changed == 'true'

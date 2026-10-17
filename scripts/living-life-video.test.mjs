@@ -1,11 +1,13 @@
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   findLatestLivingLifeVideo,
   replaceYoutubeVideoId,
+  updateLivingLifeVideo,
 } from "./living-life-video.mjs";
 
 describe("Living Life video updater", () => {
@@ -53,5 +55,82 @@ const title = "생명의 삶 영상";
 const title = "생명의 삶 영상";
 `,
     );
+  });
+});
+
+describe("CGN feed recovery", () => {
+  const temporaryDirectories = [];
+  const feedXml = `<feed><entry>
+    <title>[\uC0DD\uBA85\uC758 \uC0B6 \uD050\uD2F0] 261018QT</title>
+    <link href="https://www.youtube.com/watch?v=m53tT2h0Avs" />
+  </entry></feed>`;
+
+  function createPage() {
+    const directory = mkdtempSync(join(tmpdir(), "living-life-video-"));
+    temporaryDirectories.push(directory);
+    const pagePath = join(directory, "page.tsx");
+    writeFileSync(pagePath, 'const youtubeVideoId = "lds90VOD3Ek";\n');
+    return pagePath;
+  }
+
+  afterEach(() => {
+    for (const directory of temporaryDirectories.splice(0)) {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("recovers from temporary 404 and 503 responses before updating the page", async () => {
+    const pagePath = createPage();
+    const waitImpl = vi.fn().mockResolvedValue(undefined);
+    const fetchImpl = vi.fn()
+      .mockResolvedValueOnce({ ok: false, status: 404 })
+      .mockResolvedValueOnce({ ok: false, status: 503 })
+      .mockResolvedValueOnce({ ok: true, text: async () => feedXml });
+
+    const result = await updateLivingLifeVideo({ pagePath, fetchImpl, waitImpl });
+
+    expect(result).toMatchObject({ videoId: "m53tT2h0Avs", changed: true });
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    expect(waitImpl.mock.calls.map(([delay]) => delay)).toEqual([1000, 2000]);
+    expect(readFileSync(pagePath, "utf8")).toBe('const youtubeVideoId = "m53tT2h0Avs";\n');
+  });
+
+  it("retries a network error and leaves an already-current page unchanged", async () => {
+    const pagePath = createPage();
+    writeFileSync(pagePath, 'const youtubeVideoId = "m53tT2h0Avs";\n');
+    const fetchImpl = vi.fn()
+      .mockRejectedValueOnce(new TypeError("fetch failed"))
+      .mockResolvedValueOnce({ ok: true, text: async () => feedXml });
+
+    const result = await updateLivingLifeVideo({
+      pagePath, fetchImpl, waitImpl: vi.fn().mockResolvedValue(undefined),
+    });
+
+    expect(result.changed).toBe(false);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it("stops after five failed attempts without changing the page", async () => {
+    const pagePath = createPage();
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: false, status: 404 });
+    const waitImpl = vi.fn().mockResolvedValue(undefined);
+
+    await expect(updateLivingLifeVideo({ pagePath, fetchImpl, waitImpl }))
+      .rejects.toThrow("HTTP 404");
+
+    expect(fetchImpl).toHaveBeenCalledTimes(5);
+    expect(waitImpl.mock.calls.map(([delay]) => delay)).toEqual([1000, 2000, 4000, 8000]);
+    expect(readFileSync(pagePath, "utf8")).toBe('const youtubeVideoId = "lds90VOD3Ek";\n');
+  });
+
+  it("reports permanent HTTP errors without retrying or editing the page", async () => {
+    const pagePath = createPage();
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: false, status: 403 });
+
+    await expect(updateLivingLifeVideo({ pagePath, fetchImpl }))
+      .rejects.toThrow("HTTP 403");
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(readFileSync(pagePath, "utf8")).toBe('const youtubeVideoId = "lds90VOD3Ek";\n');
   });
 });
