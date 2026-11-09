@@ -1,11 +1,27 @@
+import { describe, expect, it, vi } from "vitest";
 import {
   defaultSchedule,
   getCurrentKoreaTime,
   normalizeSchedule,
   pickCurrentScheduleSlot,
+  rememberOpenedSlot,
 } from "./schedule";
 
 describe("XCAN schedule routing", () => {
+  it("repairs a saved destination and label that contradict a known content key", () => {
+    const slots = normalizeSchedule([{ startTime: "00:01", contentKey: "korean_bible_reading", targetPath: "/c", label: "CCM" }]);
+    expect(slots[0]).toEqual({ startTime: "00:01", contentKey: "korean_bible_reading", targetPath: "/b", label: "한글성경통독" });
+    expect(pickCurrentScheduleSlot(slots, "12:00").targetPath).toBe("/b");
+  });
+
+  it("allows navigation to continue when recording playback history fails", () => {
+    const write = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new DOMException("Blocked", "QuotaExceededError"); });
+    try {
+      expect(rememberOpenedSlot(defaultSchedule[0])).toBe(false);
+    } finally {
+      write.mockRestore();
+    }
+  });
   it("keeps the latest start time active until the next slot", () => {
     expect(pickCurrentScheduleSlot(defaultSchedule, "09:59")?.targetPath).toBe("/l");
     expect(pickCurrentScheduleSlot(defaultSchedule, "10:00")?.targetPath).toBe("/b");

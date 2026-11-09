@@ -73,6 +73,7 @@ export default function LivingLifeWebStartPage() {
   const playerRef = useRef<YouTubePlayer | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [playbackMessage, setPlaybackMessage] = useState("영상을 준비하고 있습니다.");
   const [showChrome, setShowChrome] = useState(true);
   const [isXcanApp, setIsXcanApp] = useState(false);
   const chromeTimerRef = useRef<number | null>(null);
@@ -117,6 +118,40 @@ export default function LivingLifeWebStartPage() {
 
   useEffect(() => {
     window.onYouTubeIframeAPIReady = () => {
+      const events = {
+        onReady: (event: { target: YouTubePlayer }) => {
+          playerRef.current = event.target;
+          setIsReady(true);
+          setPlaybackMessage("재생 버튼을 눌러 주세요.");
+          applyYoutubePlaybackRate(event.target);
+          disableYoutubeCaptions(event.target);
+          try {
+            event.target.playVideo?.();
+          } catch {
+            setPlaybackMessage("재생 버튼을 다시 눌러 주세요. 계속 재생되지 않으면 YouTube에서 열어 주세요.");
+          }
+        },
+        onStateChange: (event: { data: number; target: YouTubePlayer }) => {
+          if (event.data === window.YT?.PlayerState.PLAYING) {
+            if (window.AndroidBot) requestVideoFullscreen();
+            applyYoutubePlaybackRate(event.target);
+            disableYoutubeCaptions(event.target);
+            setIsPlaying(true);
+            setPlaybackMessage("");
+          } else if ([-1, 0, 2, 5].includes(event.data)) {
+            setIsPlaying(false);
+            setPlaybackMessage("재생 버튼을 눌러 주세요.");
+          }
+        },
+        onAutoplayBlocked: () => {
+          setIsPlaying(false);
+          setPlaybackMessage("재생 버튼을 눌러 주세요. 계속 재생되지 않으면 YouTube에서 열어 주세요.");
+        },
+        onError: () => {
+          setIsPlaying(false);
+          setPlaybackMessage("영상을 재생하지 못했습니다. 다시 누르거나 YouTube에서 열어 주세요.");
+        },
+      };
       playerRef.current = new window.YT!.Player("youtube-player", {
         videoId: youtubeVideoId,
         width: "100%",
@@ -124,29 +159,13 @@ export default function LivingLifeWebStartPage() {
         playerVars: {
           autoplay: 1,
           controls: 1,
-          playsinline: 0,
+          playsinline: 1,
           rel: 0,
           origin: "https://ifwe.cnanfc.com",
           cc_load_policy: 0,
           iv_load_policy: 3,
         },
-        events: {
-          onReady: (event) => {
-            playerRef.current = event.target;
-            applyYoutubePlaybackRate(event.target);
-            disableYoutubeCaptions(event.target);
-            event.target.playVideo?.();
-            setIsReady(true);
-          },
-          onStateChange: (event) => {
-            if (event.data === window.YT?.PlayerState.PLAYING) {
-              requestVideoFullscreen();
-              applyYoutubePlaybackRate(event.target);
-              disableYoutubeCaptions(event.target);
-              setIsPlaying(true);
-            }
-          },
-        },
+        events,
       });
     };
 
@@ -159,6 +178,7 @@ export default function LivingLifeWebStartPage() {
     } else if (!existingScript) {
       const tag = document.createElement("script");
       tag.src = "https://www.youtube.com/iframe_api";
+      tag.onerror = () => setPlaybackMessage("영상을 불러오지 못했습니다. YouTube에서 열어 주세요.");
       document.body.appendChild(tag);
     }
 
@@ -171,10 +191,17 @@ export default function LivingLifeWebStartPage() {
   const shouldHideChrome = isXcanApp && isPlaying && !showChrome;
 
   const startVideo = () => {
-    requestVideoFullscreen();
-    applyYoutubePlaybackRate(playerRef.current);
-    playerRef.current?.playVideo?.();
-    setIsPlaying(true);
+    if (!isReady || !playerRef.current) {
+      setPlaybackMessage("영상을 준비하고 있습니다. 잠시 후 다시 눌러 주세요.");
+      return;
+    }
+    try {
+      applyYoutubePlaybackRate(playerRef.current);
+      playerRef.current.playVideo?.();
+      setPlaybackMessage("재생을 요청했습니다. 시작되지 않으면 다시 누르거나 YouTube에서 열어 주세요.");
+    } catch {
+      setPlaybackMessage("영상을 재생하지 못했습니다. 다시 누르거나 YouTube에서 열어 주세요.");
+    }
   };
 
   return (
@@ -196,39 +223,34 @@ export default function LivingLifeWebStartPage() {
           </h1>
         </div>
 
-        <div className="flex min-h-screen w-full items-start justify-center bg-black">
+        <div className="flex w-full items-start justify-center bg-black">
           <div className="w-full bg-black">
-            <div id="youtube-shell" className="relative aspect-video w-full">
+            <div id="youtube-shell" className="relative aspect-video w-full" style={{ minHeight: 200, maxHeight: "calc(100dvh - 10rem)" }}>
               <div id="youtube-player" className="absolute inset-0 h-full w-full" />
-              {(!isReady || !isPlaying) && (
-                <button
-                  className="absolute inset-0 flex h-full w-full flex-col items-center justify-center gap-3 bg-black/55 px-6 text-center"
-                  type="button"
-                  onClick={startVideo}
-                >
-                  <span className="rounded-full bg-emerald-500 px-6 py-4 text-xl font-black shadow-xl shadow-black/40">
-                    {"\u25B6 \uC0DD\uBA85\uC758 \uC0B6 \uC7AC\uC0DD"}
-                  </span>
-                  <span className="text-sm font-bold text-white/80">
-                    {"\uB204\uB974\uBA74 \uC804\uCCB4\uD654\uBA74\uC73C\uB85C \uC2E4\uD589\uB429\uB2C8\uB2E4."}
-                  </span>
-                </button>
-              )}
             </div>
           </div>
         </div>
 
-        <div
-          className={`fixed right-3 top-1/2 z-20 w-[126px] -translate-y-1/2 transition-opacity duration-300 sm:right-5 sm:w-[150px] ${
-            shouldHideChrome || isXcanApp ? "pointer-events-none opacity-0" : "opacity-100"
-          }`}
-        >
+        <div className="mx-auto flex w-full max-w-2xl flex-col items-center gap-3 px-4 py-4">
+          {!isPlaying && (
+            <button className="min-h-12 w-full rounded-lg bg-emerald-500 px-6 py-3 text-lg font-black disabled:opacity-60" type="button" disabled={!isReady} onClick={startVideo}>
+              {isReady ? "▶ 생명의 삶 재생" : "영상 준비 중…"}
+            </button>
+          )}
+          <p role="status" aria-live="polite" className="text-center text-sm font-bold text-white/80">{playbackMessage}</p>
+          <div className="flex flex-wrap justify-center gap-3 text-sm font-bold">
+            <a className="min-h-11 rounded-lg bg-white/15 px-4 py-3" href="/schedule">시간표 설정</a>
+            <a className="min-h-11 rounded-lg bg-white/15 px-4 py-3" href={`https://www.youtube.com/watch?v=${youtubeVideoId}`} target="_blank" rel="noreferrer">YouTube에서 보기</a>
+          </div>
+        </div>
+
+        <div className={isXcanApp ? "hidden" : "mx-auto w-fit px-4 pb-4"}>
           <a
             className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-3 text-center text-sm font-black text-white shadow-xl shadow-black/50 no-underline"
             href={playStoreUrl}
           >
             <span aria-hidden="true">{"\u25BC"}</span>
-            {"\uC571 \uB2E4\uC6B4\uB85C\uB4DC"}
+            {"Android 앱 다운로드"}
           </a>
         </div>
       </section>

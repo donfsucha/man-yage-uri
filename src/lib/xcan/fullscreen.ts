@@ -1,4 +1,4 @@
-﻿type FullscreenCapableElement = HTMLElement & {
+type FullscreenCapableElement = HTMLElement & {
   webkitRequestFullscreen?: () => Promise<void> | void;
   msRequestFullscreen?: () => Promise<void> | void;
 };
@@ -20,7 +20,11 @@ declare global {
 export function requestVideoFullscreen(containerId = "youtube-shell") {
   if (typeof window === "undefined") return;
 
-  window.AndroidBot?.requestLandscapeFullscreen?.();
+  try {
+    window.AndroidBot?.requestLandscapeFullscreen?.();
+  } catch {
+    // A native bridge failure must not prevent the browser from starting playback.
+  }
 
   const target =
     (document.getElementById(containerId) as FullscreenCapableElement | null) ??
@@ -39,7 +43,8 @@ export function requestVideoFullscreen(containerId = "youtube-shell") {
   }
 
   try {
-    void (screen.orientation as OrientationWithLock | undefined)?.lock?.("landscape");
+    const result = (screen.orientation as OrientationWithLock | undefined)?.lock?.("landscape");
+    if (result && typeof result.catch === "function") result.catch(() => undefined);
   } catch {
     // Orientation lock is best-effort and unsupported on several browsers.
   }

@@ -8,11 +8,10 @@ import {
 } from "@/lib/xcan/app-launch";
 import {
   defaultSchedule,
-  lastOpenedStorageKey,
   normalizeSchedule,
   pickCurrentScheduleSlot,
+  rememberOpenedSlot,
   scheduleStorageKey,
-  type ScheduleSlot,
 } from "@/lib/xcan/schedule";
 
 function loadSchedule() {
@@ -30,18 +29,6 @@ function isAndroidBrowser() {
 
 function hasWebFallbackFlag() {
   return new URLSearchParams(window.location.search).get(webFallbackParam) === "1";
-}
-
-function rememberOpenedSlot(slot: ScheduleSlot) {
-  window.localStorage.setItem(
-    lastOpenedStorageKey,
-    JSON.stringify({
-      contentKey: slot.contentKey,
-      targetPath: slot.targetPath,
-      originalTargetPath: slot.targetPath,
-      openedAt: new Date().toISOString(),
-    }),
-  );
 }
 
 export default function NfcStartPage() {
