@@ -1,4 +1,4 @@
-﻿type FullscreenCapableElement = HTMLElement & {
+type FullscreenCapableElement = HTMLElement & {
   webkitRequestFullscreen?: () => Promise<void> | void;
   msRequestFullscreen?: () => Promise<void> | void;
 };
