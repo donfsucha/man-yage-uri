@@ -8,6 +8,28 @@ export type ScheduleSlot = {
 export const scheduleStorageKey = "xcan:user-schedule";
 export const lastOpenedStorageKey = "xcan:last-opened-content";
 
+export const scheduleContentOptions = [
+  { contentKey: "living_life", targetPath: "/l", label: "생명의 삶" },
+  { contentKey: "korean_bible_reading", targetPath: "/b", label: "한글성경통독" },
+  { contentKey: "english_bible_reading", targetPath: "/e", label: "영어성경통독" },
+  { contentKey: "ccm", targetPath: "/c", label: "CCM" },
+];
+
+export function rememberOpenedSlot(slot: ScheduleSlot) {
+  try {
+    window.localStorage.setItem(lastOpenedStorageKey, JSON.stringify({
+      contentKey: slot.contentKey,
+      targetPath: slot.targetPath,
+      originalTargetPath: slot.targetPath,
+      openedAt: new Date().toISOString(),
+    }));
+    return true;
+  } catch {
+    // History is optional; blocked storage must not prevent content navigation.
+    return false;
+  }
+}
+
 export const defaultSchedule: ScheduleSlot[] = [
   {
     startTime: "08:00",
@@ -66,11 +88,13 @@ export function normalizeSchedule(value: unknown): ScheduleSlot[] {
         return null;
       }
 
+      const content = scheduleContentOptions.find((option) => option.contentKey === record.contentKey);
+
       return {
         startTime: String(record.startTime),
-        contentKey: String(record.contentKey),
-        targetPath: String(record.targetPath),
-        label: String(record.label || record.contentKey),
+        contentKey: content?.contentKey ?? String(record.contentKey),
+        targetPath: content?.targetPath ?? String(record.targetPath),
+        label: content?.label ?? String(record.label || record.contentKey),
       };
     })
     .filter((item): item is ScheduleSlot => Boolean(item));
