@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { requestVideoFullscreen } from "@/lib/xcan/fullscreen";
 import { useScreenWakeLock } from "@/lib/xcan/use-screen-wake-lock";
 
@@ -74,19 +74,9 @@ export default function LivingLifeWebStartPage() {
   const [isReady, setIsReady] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackMessage, setPlaybackMessage] = useState("영상을 준비하고 있습니다.");
-  const [showChrome, setShowChrome] = useState(true);
   const [isXcanApp, setIsXcanApp] = useState(false);
-  const chromeTimerRef = useRef<number | null>(null);
 
   useScreenWakeLock(isReady);
-
-  const revealChrome = useCallback(() => {
-    setShowChrome(true);
-    if (chromeTimerRef.current) window.clearTimeout(chromeTimerRef.current);
-    if (isPlaying) {
-      chromeTimerRef.current = window.setTimeout(() => setShowChrome(false), 3200);
-    }
-  }, [isPlaying]);
 
   useEffect(() => {
     window.xcanSetPlaybackRate = (rate: number) => {
@@ -105,16 +95,6 @@ export default function LivingLifeWebStartPage() {
 
     return () => window.clearTimeout(timer);
   }, []);
-
-  useEffect(() => {
-    if (!isPlaying) return undefined;
-
-    const timer = window.setTimeout(revealChrome, 0);
-    return () => {
-      window.clearTimeout(timer);
-      if (chromeTimerRef.current) window.clearTimeout(chromeTimerRef.current);
-    };
-  }, [isPlaying, revealChrome]);
 
   useEffect(() => {
     window.onYouTubeIframeAPIReady = () => {
@@ -188,8 +168,6 @@ export default function LivingLifeWebStartPage() {
     };
   }, []);
 
-  const shouldHideChrome = isPlaying && !showChrome;
-
   const startVideo = () => {
     if (!isReady || !playerRef.current) {
       setPlaybackMessage("영상을 준비하고 있습니다. 잠시 후 다시 눌러 주세요.");
@@ -210,24 +188,10 @@ export default function LivingLifeWebStartPage() {
       <section
         id="youtube-shell"
         className="relative h-dvh w-screen overflow-hidden bg-black"
-        onClick={revealChrome}
       >
         <div className="absolute inset-0 h-full w-full [&>iframe]:absolute [&>iframe]:inset-0 [&>iframe]:h-full [&>iframe]:w-full">
           <div id="youtube-player" className="absolute inset-0 h-full w-full" />
         </div>
-        <div
-          className={`pointer-events-none absolute left-3 top-3 z-10 rounded-md bg-black/55 px-3 py-2 backdrop-blur transition-opacity duration-300 ${
-            shouldHideChrome ? "opacity-0" : "opacity-100"
-          }`}
-        >
-          <p className="text-[11px] font-extrabold text-emerald-300 sm:text-xs">
-            {"XC-220 \uC131\uACBD\uD1B5\uB3C5 \uAC70\uCE58\uB300"}
-          </p>
-          <h1 className="mt-0.5 text-base font-black leading-tight tracking-normal sm:text-lg">
-            {"\uC0DD\uBA85\uC758 \uC0B6 \uC601\uC0C1 \uBC14\uB85C \uBCF4\uAE30"}
-          </h1>
-        </div>
-
         {!isPlaying && (
           <div className="pointer-events-none absolute left-3 top-20 z-20 flex max-w-[min(85vw,32rem)] flex-col items-start gap-2">
             <button className="pointer-events-auto min-h-11 rounded-lg bg-emerald-500 px-5 py-3 text-base font-black shadow-lg disabled:opacity-60" type="button" disabled={!isReady} onClick={startVideo}>
