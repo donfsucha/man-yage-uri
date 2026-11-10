@@ -21,26 +21,29 @@ describe("Living Life mobile playback", () => {
     expect(loadingButton.hasAttribute("disabled")).toBe(true);
     fireEvent.click(loadingButton);
     expect(requestVideoFullscreen).not.toHaveBeenCalled();
-    expect(container.querySelector("#youtube-shell button")).toBeNull();
+    expect(container.querySelector("#youtube-player button")).toBeNull();
+    expect(screen.queryByRole("link", { name: "시간표 설정" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "YouTube에서 보기" })).toBeNull();
   });
   it("keeps retry available until actual PLAYING, and restores it on pause", () => {
     render(<LivingLifeWebStartPage />);
     ready();
     fireEvent.click(screen.getByRole("button", { name: "▶ 생명의 삶 재생" }));
-    expect(requestVideoFullscreen).not.toHaveBeenCalled();
+    expect(requestVideoFullscreen).toHaveBeenCalledTimes(1);
+    expect(player.playVideo.mock.invocationCallOrder.at(-1)).toBeLessThan(vi.mocked(requestVideoFullscreen).mock.invocationCallOrder[0]);
     expect(screen.getByRole("button", { name: "▶ 생명의 삶 재생" })).toBeTruthy();
     act(() => events.onStateChange({ data: 1, target: player }));
     expect(screen.queryByRole("button", { name: "▶ 생명의 삶 재생" })).toBeNull();
     act(() => events.onStateChange({ data: 2, target: player }));
     expect(screen.getByRole("button", { name: "▶ 생명의 삶 재생" })).toBeTruthy();
   });
-  it("offers retry and direct YouTube playback after autoplay is blocked or errors", () => {
+  it("keeps retry available after autoplay is blocked or errors", () => {
     render(<LivingLifeWebStartPage />);
     ready();
     act(() => events.onAutoplayBlocked());
     expect(screen.getByRole("button", { name: "▶ 생명의 삶 재생" }).hasAttribute("disabled")).toBe(false);
     act(() => events.onError());
     expect(screen.getByRole("status").textContent).toContain("재생하지 못했습니다");
-    expect(screen.getByRole("link", { name: "YouTube에서 보기" }).getAttribute("href")).toContain("youtube.com/watch?v=");
+    expect(screen.queryByRole("link", { name: "YouTube에서 보기" })).toBeNull();
   });
 });
