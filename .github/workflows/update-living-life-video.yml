@@ -2,11 +2,18 @@ name: Update Living Life video
 
 on:
   schedule:
-    # Daily at 00:05 Asia/Seoul, with a fallback check at 00:30.
+    # Asia/Seoul: 00:05, 00:30, 03:30, and 08:30.
     # An already-current video skips installation, build, and commit.
     - cron: "5 15 * * *"
     - cron: "30 15 * * *"
+    - cron: "30 18 * * *"
+    - cron: "30 23 * * *"
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - scripts/living-life-video.mjs
+      - .github/workflows/update-living-life-video.yml
 
 permissions:
   contents: write
