@@ -8,7 +8,7 @@ const copy = {
   koreanBible: "\uD55C\uAE00\uC131\uACBD\uD1B5\uB3C5",
   englishBible: "\uC601\uC5B4\uC131\uACBD\uD1B5\uB3C5",
   storedOnPhone: "\uC774 \uD3F0\uC758 \uBE0C\uB77C\uC6B0\uC800\uC5D0 \uC800\uC7A5\uB429\uB2C8\uB2E4.",
-  saved: "\uC800\uC7A5\uB418\uC5C8\uC2B5\uB2C8\uB2E4. NFC\uB97C \uB2E4\uC2DC \uD0DC\uAE45\uD558\uBA74 \uC774 \uC2DC\uAC04\uD45C\uAC00 \uC801\uC6A9\uB429\uB2C8\uB2E4.",
+  saved: "\uC800\uC7A5\uB418\uC5C8\uC2B5\uB2C8\uB2E4. /start\uB294 \uC2DC\uAC04\uD45C\uC640 \uAD00\uACC4\uC5C6\uC774 \uD55C\uAE00\uC131\uACBD\uD1B5\uB3C5\uC73C\uB85C \uC774\uB3D9\uD569\uB2C8\uB2E4.",
   reset: "\uAE30\uBCF8 \uC2DC\uAC04\uD45C\uB85C \uB418\uB3CC\uB838\uC2B5\uB2C8\uB2E4.",
   added: "\uC2DC\uAC04\uD45C\uB97C \uCD94\uAC00\uD588\uC2B5\uB2C8\uB2E4. \uC2DC\uAC04\uC744 \uACE0\uB974\uACE0 \uC800\uC7A5\uD574 \uC8FC\uC138\uC694.",
   loading: "저장된 시간표를 불러오고 있습니다.",
@@ -34,9 +34,9 @@ type ParsedTime = {
 function createSlot(): ScheduleSlot {
   return {
     startTime: "20:00",
-    contentKey: "english_bible_reading",
-    targetPath: "/e",
-    label: copy.englishBible,
+    contentKey: "korean_bible_reading",
+    targetPath: "/b",
+    label: copy.koreanBible,
   };
 }
 

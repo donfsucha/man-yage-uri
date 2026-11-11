@@ -23,16 +23,16 @@ describe("XCAN schedule routing", () => {
     }
   });
   it("keeps the latest start time active until the next slot", () => {
-    expect(pickCurrentScheduleSlot(defaultSchedule, "09:59")?.targetPath).toBe("/l");
+    expect(pickCurrentScheduleSlot(defaultSchedule, "09:59")?.targetPath).toBe("/b");
     expect(pickCurrentScheduleSlot(defaultSchedule, "10:00")?.targetPath).toBe("/b");
-    expect(pickCurrentScheduleSlot(defaultSchedule, "20:30")?.targetPath).toBe("/e");
-    expect(pickCurrentScheduleSlot(defaultSchedule, "23:30")?.targetPath).toBe("/c");
+    expect(pickCurrentScheduleSlot(defaultSchedule, "20:30")?.targetPath).toBe("/b");
+    expect(pickCurrentScheduleSlot(defaultSchedule, "23:30")?.targetPath).toBe("/b");
   });
 
   it("wraps the last slot through midnight until the first start time", () => {
-    expect(pickCurrentScheduleSlot(defaultSchedule, "00:10")?.targetPath).toBe("/c");
-    expect(pickCurrentScheduleSlot(defaultSchedule, "07:59")?.targetPath).toBe("/c");
-    expect(pickCurrentScheduleSlot(defaultSchedule, "08:00")?.targetPath).toBe("/l");
+    expect(pickCurrentScheduleSlot(defaultSchedule, "00:10")?.targetPath).toBe("/b");
+    expect(pickCurrentScheduleSlot(defaultSchedule, "07:59")?.targetPath).toBe("/b");
+    expect(pickCurrentScheduleSlot(defaultSchedule, "08:00")?.targetPath).toBe("/b");
   });
 
   it("falls back to the default schedule when saved data is unusable", () => {
@@ -60,5 +60,15 @@ describe("XCAN schedule routing", () => {
     const utcMidnight = new Date("2026-06-19T00:15:00.000Z");
 
     expect(getCurrentKoreaTime(utcMidnight)).toBe("09:15");
+  });
+});
+
+describe("Korean Bible default schedule", () => {
+  it("routes every minute of the day to the Korean Bible", () => {
+    for (let minute = 0; minute < 1440; minute++) {
+      const time = String(Math.floor(minute / 60)).padStart(2, "0") + ":" + String(minute % 60).padStart(2, "0");
+      expect(pickCurrentScheduleSlot(defaultSchedule, time).contentKey).toBe("korean_bible_reading");
+      expect(pickCurrentScheduleSlot(defaultSchedule, time).targetPath).toBe("/b");
+    }
   });
 });

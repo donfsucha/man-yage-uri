@@ -30,32 +30,13 @@ export function rememberOpenedSlot(slot: ScheduleSlot) {
   }
 }
 
-export const defaultSchedule: ScheduleSlot[] = [
-  {
-    startTime: "08:00",
-    contentKey: "living_life",
-    targetPath: "/l",
-    label: "\uC0DD\uBA85\uC758 \uC0B6",
-  },
-  {
-    startTime: "10:00",
-    contentKey: "korean_bible_reading",
-    targetPath: "/b",
-    label: "\uD55C\uAE00\uC131\uACBD\uD1B5\uB3C5",
-  },
-  {
-    startTime: "20:00",
-    contentKey: "english_bible_reading",
-    targetPath: "/e",
-    label: "\uC601\uC5B4\uC131\uACBD\uD1B5\uB3C5",
-  },
-  {
-    startTime: "21:00",
-    contentKey: "ccm",
-    targetPath: "/c",
-    label: "CCM",
-  },
-];
+// Every default time slot opens the Korean Bible reader.
+export const defaultSchedule: ScheduleSlot[] = ["08:00", "10:00", "20:00", "21:00"].map((startTime) => ({
+  startTime,
+  contentKey: "korean_bible_reading",
+  targetPath: "/b",
+  label: "\uD55C\uAE00\uC131\uACBD\uD1B5\uB3C5",
+}));
 
 function toMinutes(startTime: string) {
   const match = /^(\d{2}):(\d{2})$/.exec(startTime);
