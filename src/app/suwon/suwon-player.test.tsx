@@ -20,6 +20,8 @@ describe("SuwonPlayer", () => {
     window.YT = { Player: player, PlayerState: { PLAYING: 1, ENDED: 0 } } as unknown as typeof window.YT;
     render(<SuwonPlayer videoId="KNJ2booGUGU" />);
 
+    expect(screen.getByText("XC-400 성경통독 거치대")).toBeTruthy();
+
     expect(player).toHaveBeenCalledWith("youtube-player", expect.objectContaining({ videoId: "KNJ2booGUGU" }));
     fireEvent.click(screen.getByRole("button", { name: /새벽기도회 재생/ }));
     expect(requestVideoFullscreen).toHaveBeenCalled();

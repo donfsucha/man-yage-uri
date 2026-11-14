@@ -194,7 +194,7 @@ export default function SuwonPlayer({ videoId: youtubeVideoId, title = "수원�
           }`}
         >
           <p className="text-[11px] font-extrabold text-emerald-300 sm:text-xs">
-            {"XC-220 \uC131\uACBD\uD1B5\uB3C5 \uAC70\uCE58\uB300"}
+            {"XC-400 \uC131\uACBD\uD1B5\uB3C5 \uAC70\uCE58\uB300"}
           </p>
           <h1 className="mt-0.5 text-base font-black leading-tight tracking-normal sm:text-lg">
             {title}
