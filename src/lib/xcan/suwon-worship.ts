@@ -2,7 +2,7 @@ export const suwonFeedUrl = "https://www.youtube.com/feeds/videos.xml?channel_id
 export const suwonStreamsUrl = "https://www.youtube.com/@SuwonJeilCh/streams";
 
 export function findLatestSuwonStream(html: string): string | null {
-  const match = html.match(/(?:var\s+ytInitialData\s*=\s*|window\["ytInitialData"\]\s*=\s*)(\{.*?\});\s*<\/script>/s);
+  const match = html.match(/(?:var\s+ytInitialData\s*=\s*|window\["ytInitialData"\]\s*=\s*)(\{[\s\S]*?\});\s*<\/script>/);
   if (!match) return null;
   try {
     const data: unknown = JSON.parse(match[1]);
