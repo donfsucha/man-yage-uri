@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
 import { findLatestSuwonStream, findTodaySuwonWorship, suwonFeedUrl, suwonStreamsUrl } from "@/lib/xcan/suwon-worship";
+import SuwonPlayer from "./suwon-player";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +19,7 @@ export default async function SuwonWorshipPage() {
       // Show a retry option when YouTube is unavailable.
     }
   }
-  if (videoUrl) redirect(videoUrl);
+  if (videoUrl) return <SuwonPlayer videoId={new URL(videoUrl).searchParams.get("v")!} />;
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-5 bg-zinc-950 p-6 text-center text-white">
