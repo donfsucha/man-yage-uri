@@ -74,7 +74,7 @@ function openWorshipFullscreen() {
   requestVideoFullscreen();
 }
 
-export default function SuwonPlayer({ videoId: youtubeVideoId }: { videoId: string }) {
+export default function SuwonPlayer({ videoId: youtubeVideoId, title = "수원제일교회 새벽기도회" }: { videoId: string; title?: string }) {
   const playerRef = useRef<YouTubePlayer | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -197,7 +197,7 @@ export default function SuwonPlayer({ videoId: youtubeVideoId }: { videoId: stri
             {"XC-220 \uC131\uACBD\uD1B5\uB3C5 \uAC70\uCE58\uB300"}
           </p>
           <h1 className="mt-0.5 text-base font-black leading-tight tracking-normal sm:text-lg">
-            {"수원제일교회 새벽기도회"}
+            {title}
           </h1>
         </div>
 
@@ -212,7 +212,7 @@ export default function SuwonPlayer({ videoId: youtubeVideoId }: { videoId: stri
                   onClick={startVideo}
                 >
                   <span className="rounded-full bg-emerald-500 px-6 py-4 text-xl font-black shadow-xl shadow-black/40">
-                    {"▶ 새벽기도회 재생"}
+                    {`▶ ${title === "수원제일교회 새벽기도회" ? "새벽기도회" : title} 재생`}
                   </span>
                   <span className="text-sm font-bold text-white/80">
                     {"\uB204\uB974\uBA74 \uC804\uCCB4\uD654\uBA74\uC73C\uB85C \uC2E4\uD589\uB429\uB2C8\uB2E4."}
