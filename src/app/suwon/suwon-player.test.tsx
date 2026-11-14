@@ -9,6 +9,7 @@ vi.mock("@/lib/xcan/use-screen-wake-lock", () => ({ useScreenWakeLock: vi.fn() }
 afterEach(() => {
   cleanup();
   delete window.YT;
+  delete window.AndroidBot;
   vi.clearAllMocks();
 });
 
@@ -23,5 +24,18 @@ describe("SuwonPlayer", () => {
     fireEvent.click(screen.getByRole("button", { name: /새벽기도회 재생/ }));
     expect(requestVideoFullscreen).toHaveBeenCalled();
     expect(playVideo).toHaveBeenCalled();
+  });
+
+  it("uses XCAN landscape mode and inline playback without entering browser fullscreen", () => {
+    const landscape = vi.fn();
+    window.AndroidBot = { requestLandscapeFullscreen: landscape };
+    const player = vi.fn(function () { return { playVideo: vi.fn(), destroy: vi.fn() }; });
+    window.YT = { Player: player, PlayerState: { PLAYING: 1, ENDED: 0 } } as unknown as typeof window.YT;
+    render(<SuwonPlayer videoId="KNJ2booGUGU" />);
+
+    expect(player).toHaveBeenCalledWith("youtube-player", expect.objectContaining({ playerVars: expect.objectContaining({ playsinline: 1 }) }));
+    fireEvent.click(screen.getByRole("button", { name: /새벽기도회 재생/ }));
+    expect(landscape).toHaveBeenCalled();
+    expect(requestVideoFullscreen).not.toHaveBeenCalled();
   });
 });

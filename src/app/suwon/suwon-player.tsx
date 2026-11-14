@@ -68,6 +68,14 @@ function applyYoutubePlaybackRate(player: YouTubePlayer | null, requestedRate?: 
   player?.setPlaybackRate?.(rate);
 }
 
+function openWorshipFullscreen() {
+  if (window.AndroidBot?.requestLandscapeFullscreen) {
+    window.AndroidBot.requestLandscapeFullscreen();
+    return;
+  }
+  requestVideoFullscreen();
+}
+
 export default function SuwonPlayer({ videoId: youtubeVideoId }: { videoId: string }) {
   const playerRef = useRef<YouTubePlayer | null>(null);
   const [isReady, setIsReady] = useState(false);
@@ -123,7 +131,7 @@ export default function SuwonPlayer({ videoId: youtubeVideoId }: { videoId: stri
         playerVars: {
           autoplay: 1,
           controls: 1,
-          playsinline: 0,
+          playsinline: 1,
           rel: 0,
           origin: "https://ifwe.cnanfc.com",
           cc_load_policy: 0,
@@ -139,7 +147,7 @@ export default function SuwonPlayer({ videoId: youtubeVideoId }: { videoId: stri
           },
           onStateChange: (event) => {
             if (event.data === window.YT?.PlayerState.PLAYING) {
-              requestVideoFullscreen();
+              openWorshipFullscreen();
               applyYoutubePlaybackRate(event.target);
               disableYoutubeCaptions(event.target);
               setIsPlaying(true);
@@ -170,7 +178,7 @@ export default function SuwonPlayer({ videoId: youtubeVideoId }: { videoId: stri
   const shouldHideChrome = isXcanApp && isPlaying && !showChrome;
 
   const startVideo = () => {
-    requestVideoFullscreen();
+    openWorshipFullscreen();
     applyYoutubePlaybackRate(playerRef.current);
     playerRef.current?.playVideo?.();
     setIsPlaying(true);
@@ -197,7 +205,7 @@ export default function SuwonPlayer({ videoId: youtubeVideoId }: { videoId: stri
 
         <div className="flex min-h-screen w-full items-start justify-center bg-black">
           <div className="w-full bg-black">
-            <div id="youtube-shell" className="relative aspect-video w-full">
+            <div id="youtube-shell" className={`relative w-full ${isXcanApp ? "h-dvh" : "aspect-video"}`}>
               <div id="youtube-player" className="absolute inset-0 h-full w-full" />
               {(!isReady || !isPlaying) && (
                 <button
