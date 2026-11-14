@@ -26,7 +26,7 @@ describe("SuwonPlayer", () => {
     expect(playVideo).toHaveBeenCalled();
   });
 
-  it("uses XCAN landscape mode and inline playback without entering browser fullscreen", () => {
+  it("keeps XCAN orientation unchanged during playback", () => {
     const landscape = vi.fn();
     window.AndroidBot = { requestLandscapeFullscreen: landscape };
     const player = vi.fn(function () { return { playVideo: vi.fn(), destroy: vi.fn() }; });
@@ -35,7 +35,10 @@ describe("SuwonPlayer", () => {
 
     expect(player).toHaveBeenCalledWith("youtube-player", expect.objectContaining({ playerVars: expect.objectContaining({ playsinline: 1 }) }));
     fireEvent.click(screen.getByRole("button", { name: /새벽기도회 재생/ }));
-    expect(landscape).toHaveBeenCalled();
+    const calls = player.mock.calls as unknown as Array<[string, { events: { onStateChange: (event: { data: number; target: object }) => void } }]>;
+    const options = calls[0][1];
+    options.events.onStateChange({ data: 1, target: {} });
+    expect(landscape).not.toHaveBeenCalled();
     expect(requestVideoFullscreen).not.toHaveBeenCalled();
   });
 });

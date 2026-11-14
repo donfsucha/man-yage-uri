@@ -69,10 +69,8 @@ function applyYoutubePlaybackRate(player: YouTubePlayer | null, requestedRate?: 
 }
 
 function openWorshipFullscreen() {
-  if (window.AndroidBot?.requestLandscapeFullscreen) {
-    window.AndroidBot.requestLandscapeFullscreen();
-    return;
-  }
+  // XCAN PLAYER controls orientation itself; playback must not override the user's choice.
+  if (window.AndroidBot) return;
   requestVideoFullscreen();
 }
 
