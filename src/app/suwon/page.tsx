@@ -1,15 +1,23 @@
 import { redirect } from "next/navigation";
-import { findTodaySuwonWorship, suwonFeedUrl } from "@/lib/xcan/suwon-worship";
+import { findLatestSuwonStream, findTodaySuwonWorship, suwonFeedUrl, suwonStreamsUrl } from "@/lib/xcan/suwon-worship";
 
 export const dynamic = "force-dynamic";
 
 export default async function SuwonWorshipPage() {
   let videoUrl: string | null = null;
   try {
-    const response = await fetch(suwonFeedUrl, { cache: "no-store", signal: AbortSignal.timeout(10000) });
-    if (response.ok) videoUrl = findTodaySuwonWorship(await response.text());
+    const response = await fetch(suwonStreamsUrl, { cache: "no-store", signal: AbortSignal.timeout(10000) });
+    if (response.ok) videoUrl = findLatestSuwonStream(await response.text());
   } catch {
-    // Show a retry option when the channel feed is temporarily unavailable.
+    // Fall back to the channel feed if the streams page is unavailable.
+  }
+  if (!videoUrl) {
+    try {
+      const response = await fetch(suwonFeedUrl, { cache: "no-store", signal: AbortSignal.timeout(10000) });
+      if (response.ok) videoUrl = findTodaySuwonWorship(await response.text());
+    } catch {
+      // Show a retry option when YouTube is unavailable.
+    }
   }
   if (videoUrl) redirect(videoUrl);
 

@@ -1,4 +1,42 @@
 export const suwonFeedUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=UCpT3ZKDtCRX67Knkzl7Uc6w";
+export const suwonStreamsUrl = "https://www.youtube.com/@SuwonJeilCh/streams";
+
+export function findLatestSuwonStream(html: string): string | null {
+  const match = html.match(/(?:var\s+ytInitialData\s*=\s*|window\["ytInitialData"\]\s*=\s*)(\{.*?\});\s*<\/script>/s);
+  if (!match) return null;
+  try {
+    const data: unknown = JSON.parse(match[1]);
+    const visit = (node: unknown): string | null => {
+      if (!node || typeof node !== "object") return null;
+      if (Array.isArray(node)) {
+        for (const child of node) {
+          const found = visit(child);
+          if (found) return found;
+        }
+        return null;
+      }
+      const record = node as Record<string, unknown>;
+      if (record.lockupViewModel && typeof record.lockupViewModel === "object") {
+        const video = record.lockupViewModel as { contentId?: unknown; metadata?: { lockupMetadataViewModel?: { title?: { content?: unknown }; metadata?: unknown } } };
+        const title = video.metadata?.lockupMetadataViewModel?.title?.content;
+        const details = JSON.stringify(video.metadata?.lockupMetadataViewModel?.metadata ?? "");
+        if (typeof title === "string" && /새벽\s*(기도회|예배)/.test(title) &&
+            typeof video.contentId === "string" && /^[\w-]{11}$/.test(video.contentId) &&
+            /(?:ago|streamed|전|실시간)/i.test(details) && !/(?:upcoming|scheduled|예정)/i.test(details)) {
+          return `https://www.youtube.com/watch?v=${video.contentId}`;
+        }
+      }
+      for (const child of Object.values(record)) {
+        const found = visit(child);
+        if (found) return found;
+      }
+      return null;
+    };
+    return visit(data);
+  } catch {
+    return null;
+  }
+}
 
 export function findTodaySuwonWorship(xml: string, now = new Date()): string | null {
   const parts = new Intl.DateTimeFormat("en-GB", {
