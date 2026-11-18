@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ChapterReadingPlan, type ChapterProgressHandle } from "@/components/xcan/chapter-reading-plan";
 import { requestVideoFullscreen } from "@/lib/xcan/fullscreen";
 import { useScreenWakeLock } from "@/lib/xcan/use-screen-wake-lock";
 import {
@@ -257,6 +258,7 @@ function getGroupKey(group: KoreanBibleBookGroup) {
 
 export default function BibleWebStartPage() {
   const playerRef = useRef<YouTubePlayer | null>(null);
+  const chapterProgressRef = useRef<ChapterProgressHandle | null>(null);
   const saveTimerRef = useRef<number | null>(null);
   const activeIndexRef = useRef(0);
   const completedDaysRef = useRef<number[]>([]);
@@ -347,6 +349,7 @@ export default function BibleWebStartPage() {
   };
 
   const startAtIndex = (index: number, seconds = 0) => {
+    chapterProgressRef.current?.resetSample();
     const safeIndex = Math.min(koreanBibleVideos.length - 1, Math.max(0, index));
     const video = koreanBibleVideos[safeIndex] ?? koreanBibleVideos[0];
     const nextProgress = {
@@ -408,6 +411,7 @@ export default function BibleWebStartPage() {
             setIsReady(true);
           },
           onStateChange: (event) => {
+            if (event.data !== window.YT?.PlayerState.PLAYING && event.data !== window.YT?.PlayerState.ENDED) chapterProgressRef.current?.resetSample();
             if (event.data === window.YT?.PlayerState.PLAYING) {
               if (planOpenRef.current) return;
               requestVideoFullscreen("xcan-player-shell");
@@ -420,9 +424,10 @@ export default function BibleWebStartPage() {
             if (event.data === window.YT?.PlayerState.ENDED) {
               const currentIndex = activeIndexRef.current;
               const completedVideo = koreanBibleVideos[currentIndex] ?? koreanBibleVideos[0];
-              const nextCompletedDays = Array.from(
+              const qualified = chapterProgressRef.current?.finish(completedVideo, (event.target as YouTubePlayer & { getDuration?: () => number }).getDuration?.() ?? 0) ?? false;
+              const nextCompletedDays = qualified ? Array.from(
                 new Set([...completedDaysRef.current, completedVideo.day]),
-              ).sort((a, b) => a - b);
+              ).sort((a, b) => a - b) : completedDaysRef.current;
               const nextIndex = Math.min(currentIndex + 1, koreanBibleVideos.length - 1);
               const nextProgress = {
                 index: nextIndex,
@@ -433,7 +438,13 @@ export default function BibleWebStartPage() {
 
               setProgress(nextProgress);
               setOpenGroupKey(findGroupKeyForIndex(nextIndex));
-              playBibleVideo(event.target, koreanBibleVideos[nextIndex], 0);
+              if (currentIndex < koreanBibleVideos.length - 1) {
+                playBibleVideo(event.target, koreanBibleVideos[nextIndex], 0);
+              } else {
+                setIsPlaying(false);
+                setIsPlanOpen(true);
+                planOpenRef.current = true;
+              }
             }
           },
         },
@@ -452,6 +463,12 @@ export default function BibleWebStartPage() {
       document.body.appendChild(tag);
     }
 
+    const coverageTimer = window.setInterval(() => {
+      const player = playerRef.current;
+      if (!player) return;
+      chapterProgressRef.current?.sample(koreanBibleVideos[activeIndexRef.current], player.getCurrentTime(), (player as YouTubePlayer & { getDuration?: () => number }).getDuration?.() ?? 0, (player as YouTubePlayer & { getPlaybackRate?: () => number }).getPlaybackRate?.() ?? 1, player.getPlayerState() === window.YT?.PlayerState.PLAYING);
+    }, 1000);
+
     saveTimerRef.current = window.setInterval(() => {
       if (!playerRef.current) return;
       if (playerRef.current.getPlayerState?.() === window.YT?.PlayerState.PLAYING) {
@@ -460,6 +477,7 @@ export default function BibleWebStartPage() {
     }, 5000);
 
     return () => {
+      window.clearInterval(coverageTimer);
       if (saveTimerRef.current) window.clearInterval(saveTimerRef.current);
       playerRef.current?.destroy?.();
       window.onYouTubeIframeAPIReady = undefined;
@@ -524,8 +542,8 @@ export default function BibleWebStartPage() {
           </button>
         )}
 
-        {isPlanOpen && (
-          <div className="fixed inset-x-0 bottom-0 z-30 border-t border-white/15 bg-zinc-950/96 px-3 pb-4 pt-3 text-white shadow-2xl shadow-black backdrop-blur sm:left-auto sm:right-4 sm:bottom-4 sm:w-[440px] sm:rounded-lg sm:border">
+        {(
+          <div style={{ display: isPlanOpen ? undefined : "none" }} className="fixed inset-x-0 bottom-0 z-30 border-t border-white/15 bg-zinc-950/96 px-3 pb-4 pt-3 text-white shadow-2xl shadow-black backdrop-blur sm:left-auto sm:right-4 sm:bottom-4 sm:w-[440px] sm:rounded-lg sm:border">
             <div className="mb-3 flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-xs font-extrabold text-emerald-300">성경 읽기표</p>
@@ -547,11 +565,12 @@ export default function BibleWebStartPage() {
             </div>
 
             <div className="mb-3 rounded-md bg-white/8 px-3 py-2 text-xs font-bold text-white/80">
-              현재 위치: {currentVideo.title} · 완료 {savedProgress.completedDays.length}/
+              현재 위치: {currentVideo.title} · 일차 완료 {savedProgress.completedDays.length}/
               {koreanBibleVideos.length}
             </div>
 
-            <div className="max-h-[48vh] overflow-y-auto pr-1">
+            <div className="max-h-[65vh] overflow-y-auto pr-1">
+              <ChapterReadingPlan ref={chapterProgressRef} visible={isPlanOpen} currentBook={currentVideo.book} legacyCount={savedProgress.completedDays.length} />
               {bookGroups.map((group) => {
                 const key = getGroupKey(group);
                 const isOpen = openGroupKey === key;
