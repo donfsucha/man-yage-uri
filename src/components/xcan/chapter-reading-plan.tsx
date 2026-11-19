@@ -27,7 +27,7 @@ export type ChapterProgressHandle = {
   finish: (video: KoreanBibleVideo, duration: number) => boolean;
   resetSample: () => void;
 };
-export const ChapterReadingPlan = forwardRef<ChapterProgressHandle, {visible:boolean; currentBook:string; legacyCount:number}>(function ChapterReadingPlan({visible,currentBook,legacyCount}, ref) {
+export const ChapterReadingPlan = forwardRef<ChapterProgressHandle, {visible:boolean; currentBook:string; legacyCount:number; onVideoProgressChange?:(keys:string[])=>void}>(function ChapterReadingPlan({visible,currentBook,legacyCount,onVideoProgressChange}, ref) {
   const data = useRef<ChapterRecord>(emptyRecord());
   const loaded = useRef(false);
   const last = useRef<{seconds:number;at:number;rate:number;id:string}|null>(null);
@@ -90,6 +90,9 @@ export const ChapterReadingPlan = forwardRef<ChapterProgressHandle, {visible:boo
   }
   const selected=book || (bibleBooks.some(item=>item.book===currentBook)?currentBook:bibleBooks[0].book);
   const effectiveVideo=record.videoCompleted.filter(key=>!record.excludedVideo.includes(key));
+  useEffect(() => {
+    onVideoProgressChange?.(record.videoCompleted.filter(key=>!record.excludedVideo.includes(key)));
+  }, [record.videoCompleted, record.excludedVideo, onVideoProgressChange]);
   if(!visible) return null;
   return <section className="mb-4 rounded-lg border border-sky-400/30 bg-sky-950/30 p-3" aria-label="장별 읽기 기록">
     <h3 className="font-black text-sky-200">장별 읽기 기록</h3>

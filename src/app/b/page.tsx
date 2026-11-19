@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChapterReadingPlan, type ChapterProgressHandle } from "@/components/xcan/chapter-reading-plan";
+import { chapterRangesForVideo } from "@/lib/xcan/chapter-progress";
 import { requestVideoFullscreen } from "@/lib/xcan/fullscreen";
 import { useScreenWakeLock } from "@/lib/xcan/use-screen-wake-lock";
 import {
@@ -258,6 +259,11 @@ function getGroupKey(group: KoreanBibleBookGroup) {
 
 export default function BibleWebStartPage() {
   const playerRef = useRef<YouTubePlayer | null>(null);
+  const [confirmedVideoChapters, setConfirmedVideoChapters] = useState<string[]>([]);
+  const watchedDays = useMemo(() => {
+    const keys = new Set(confirmedVideoChapters);
+    return new Set(koreanBibleVideos.filter(video => chapterRangesForVideo(video).every(chapter => keys.has(chapter.key))).map(video => video.day));
+  }, [confirmedVideoChapters]);
   const chapterProgressRef = useRef<ChapterProgressHandle | null>(null);
   const readingPanelRef = useRef<HTMLDivElement | null>(null);
   const saveTimerRef = useRef<number | null>(null);
@@ -575,7 +581,7 @@ export default function BibleWebStartPage() {
             </div>
 
             <div className="pr-1">
-              <ChapterReadingPlan ref={chapterProgressRef} visible={isPlanOpen} currentBook={currentVideo.book} legacyCount={savedProgress.completedDays.length} />
+              <ChapterReadingPlan onVideoProgressChange={setConfirmedVideoChapters} ref={chapterProgressRef} visible={isPlanOpen} currentBook={currentVideo.book} legacyCount={savedProgress.completedDays.length} />
               {bookGroups.map((group) => {
                 const key = getGroupKey(group);
                 const isOpen = openGroupKey === key;
@@ -615,7 +621,7 @@ export default function BibleWebStartPage() {
 
                           return (
                             <div
-                              className={`mb-2 grid grid-cols-[34px_1fr_70px] items-center gap-2 rounded-md border px-2 py-2 last:mb-0 ${
+                              className={`mb-2 grid ${isXcanApp ? "grid-cols-[34px_1fr_70px]" : "grid-cols-[34px_minmax(0,1fr)] sm:grid-cols-[34px_minmax(0,1fr)_auto]"} items-center gap-2 rounded-md border px-2 py-2 last:mb-0 ${
                                 isCurrent
                                   ? "border-emerald-400 bg-emerald-500/15"
                                   : "border-white/10 bg-black/25"
@@ -652,13 +658,22 @@ export default function BibleWebStartPage() {
                                   {video.chapters} · {video.day}일차
                                 </span>
                               </button>
+                              {isXcanApp ? (
+                                <button className="whitespace-nowrap rounded-md bg-white/12 px-2 py-2 text-xs font-black text-white" type="button" onClick={() => startAtIndex(index, 0)}>시작</button>
+                              ) : (
+                              <div className="col-start-2 flex min-w-0 items-center justify-end gap-2 sm:col-start-auto" data-watch-status={watchedDays.has(video.day) ? "complete" : "incomplete"}>
+                              <span className={`whitespace-nowrap text-xs font-bold ${watchedDays.has(video.day) ? "text-sky-300" : "text-white/60"}`}>
+                                {watchedDays.has(video.day) ? "시청 완료" : "시청 미완료"}
+                              </span>
                               <button
-                                className="whitespace-nowrap rounded-md bg-white/12 px-2 py-2 text-xs font-black text-white"
+                                className="min-h-10 min-w-14 whitespace-nowrap rounded-md bg-white/12 px-2 py-2 text-xs font-black text-white"
                                 type="button"
                                 onClick={() => startAtIndex(index, 0)}
                               >
                                 시작
                               </button>
+                              </div>
+                              )}
                             </div>
                           );
                         })}
