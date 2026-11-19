@@ -259,6 +259,7 @@ function getGroupKey(group: KoreanBibleBookGroup) {
 export default function BibleWebStartPage() {
   const playerRef = useRef<YouTubePlayer | null>(null);
   const chapterProgressRef = useRef<ChapterProgressHandle | null>(null);
+  const readingPanelRef = useRef<HTMLDivElement | null>(null);
   const saveTimerRef = useRef<number | null>(null);
   const activeIndexRef = useRef(0);
   const completedDaysRef = useRef<number[]>([]);
@@ -273,6 +274,10 @@ export default function BibleWebStartPage() {
   const chromeTimerRef = useRef<number | null>(null);
 
   useScreenWakeLock(isReady);
+
+  useEffect(() => {
+    if (isPlanOpen) readingPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [isPlanOpen]);
 
   const revealChrome = useCallback(() => {
     setShowChrome(true);
@@ -521,7 +526,7 @@ export default function BibleWebStartPage() {
         {!isXcanApp && shouldHideChrome && (
           <button
             aria-label="재생 화면 메뉴 표시"
-            className="fixed inset-0 z-10 cursor-default bg-transparent"
+            className="absolute inset-x-0 top-0 z-10 aspect-video cursor-default bg-transparent"
             type="button"
             onClick={revealChrome}
           />
@@ -530,7 +535,7 @@ export default function BibleWebStartPage() {
         {!isXcanApp && (
           <button
             aria-label="성경 읽기표 열기"
-            className={`fixed right-2 top-1/2 z-20 -translate-y-1/2 rounded-md bg-sky-500/95 px-3 py-3 text-xs font-black text-white shadow-lg shadow-black/50 transition-opacity duration-300 ${shouldHideChrome ? "pointer-events-none opacity-0" : "opacity-100"}`}
+            className="m-3 self-start rounded-md bg-sky-500/95 px-4 py-3 text-sm font-black text-white"
             type="button"
             onClick={() => {
               setOpenGroupKey((value) => value ?? findGroupKeyForIndex(savedProgress.index));
@@ -543,11 +548,11 @@ export default function BibleWebStartPage() {
         )}
 
         {(
-          <div style={{ display: isPlanOpen ? undefined : "none" }} className="fixed inset-x-0 bottom-0 z-30 border-t border-white/15 bg-zinc-950/96 px-3 pb-4 pt-3 text-white shadow-2xl shadow-black backdrop-blur sm:left-auto sm:right-4 sm:bottom-4 sm:w-[440px] sm:rounded-lg sm:border">
+          <div ref={readingPanelRef} style={{ display: isPlanOpen ? undefined : "none" }} className="relative mx-auto w-full max-w-3xl border-t border-white/15 bg-zinc-950 px-3 pb-4 pt-3 text-white">
             <div className="mb-3 flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-xs font-extrabold text-emerald-300">성경 읽기표</p>
-                <h2 className="text-lg font-black">책별 시작 위치 선택</h2>
+                <h2 className="text-lg font-black">성경 읽기표 · 책별 시작 위치</h2>
                 <p className="mt-1 text-xs font-bold text-white/65">
                   책을 먼저 열고, 안에서 원하는 일차를 선택하세요.
                 </p>
@@ -569,7 +574,7 @@ export default function BibleWebStartPage() {
               {koreanBibleVideos.length}
             </div>
 
-            <div className="max-h-[65vh] overflow-y-auto pr-1">
+            <div className="pr-1">
               <ChapterReadingPlan ref={chapterProgressRef} visible={isPlanOpen} currentBook={currentVideo.book} legacyCount={savedProgress.completedDays.length} />
               {bookGroups.map((group) => {
                 const key = getGroupKey(group);

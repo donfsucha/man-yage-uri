@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { ChapterReadingPlan } from "@/components/xcan/chapter-reading-plan";
+import { koreanBibleProgressKey, legacyKoreanBibleProgressKey } from "@/lib/xcan/bible-reading";
 import { defaultSchedule, normalizeSchedule, scheduleContentOptions, scheduleStorageKey, type ScheduleSlot } from "@/lib/xcan/schedule";
 
 const copy = {
@@ -140,6 +143,8 @@ function TimePickerPanel({
 }
 
 export default function ScheduleSettingsPage() {
+  const [readingPlanOpen, setReadingPlanOpen] = useState(false);
+  const [readingSummary, setReadingSummary] = useState({ book: "창세기", completed: 0 });
   const [schedule, setSchedule] = useState<ScheduleSlot[]>(defaultSchedule);
   const [message, setMessage] = useState(copy.loading);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -157,6 +162,10 @@ export default function ScheduleSettingsPage() {
         setHasError(true);
         setMessage(copy.loadError);
       }
+      try {
+        const progress = JSON.parse(localStorage.getItem(koreanBibleProgressKey) ?? localStorage.getItem(legacyKoreanBibleProgressKey) ?? "null");
+        if (progress) setReadingSummary({ book: typeof progress.book === "string" ? progress.book : "창세기", completed: Array.isArray(progress.completedDays) ? progress.completedDays.length : 0 });
+      } catch { /* Reading progress must never block schedule editing. */ }
       setIsLoaded(true);
     }, 0);
     return () => window.clearTimeout(timer);
@@ -233,14 +242,25 @@ export default function ScheduleSettingsPage() {
 
   return (
     <main className="min-h-dvh bg-zinc-950 px-4 py-5 text-white">
-      <section className="mx-auto flex h-[calc(100dvh-2.5rem)] w-full max-w-xl flex-col gap-4 overflow-hidden">
+      <section className="mx-auto flex w-full max-w-xl flex-col gap-4">
         <header className="shrink-0">
           <p className="text-xs font-extrabold text-emerald-300">XC-220 {"\uC131\uACBD\uD1B5\uB3C5 \uAC70\uCE58\uB300"}</p>
           <h1 className="mt-2 text-2xl font-black tracking-normal">{"\uC6F9 \uC2A4\uCF00\uC904 \uC124\uC815"}</h1>
           <p role={hasError ? "alert" : "status"} aria-live="polite" className="mt-2 text-sm font-bold leading-6 text-white/70">{message}</p>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+        <section aria-label="성경 읽기표 바로가기" className="rounded-lg border border-sky-400/30 bg-sky-950/20 p-3">
+          <button type="button" aria-label={`성경 읽기표 ${readingPlanOpen ? "접기" : "펼치기"}`} aria-expanded={readingPlanOpen} aria-controls="schedule-reading-plan" onClick={() => setReadingPlanOpen(value => !value)} className="flex min-h-12 w-full items-center justify-between gap-3 rounded-md px-2 text-left font-black text-sky-200">
+            <span className="flex items-center gap-2"><span aria-hidden="true">📖</span> 성경 읽기표</span><span className="text-xs">{readingPlanOpen ? "접기" : "펼치기"}</span>
+          </button>
+          <div id="schedule-reading-plan" hidden={!readingPlanOpen}>
+            <p className="mb-3 text-xs leading-5 text-white/65">아래로 펼쳐 보는 읽기표입니다. 시간표를 덮지 않으며, 편집 중인 시간표도 그대로 유지됩니다.</p>
+            <ChapterReadingPlan visible={readingPlanOpen} currentBook={readingSummary.book} legacyCount={readingSummary.completed} />
+            <Link href="/b" className="inline-flex min-h-11 items-center rounded-md bg-white/10 px-3 text-sm font-bold">성경통독 재생 화면</Link>
+          </div>
+        </section>
+
+        <div>
           <div className="flex flex-col gap-3 pb-2">
             {schedule.map((slot, index) => (
               <div className="rounded-lg border border-white/10 bg-white/5 p-3" key={`schedule-${index}`}>
@@ -309,9 +329,9 @@ export default function ScheduleSettingsPage() {
           <button className="h-12 rounded-lg bg-white/10 text-sm font-black text-white" type="button" disabled={!isLoaded} onClick={resetSchedule}>
             {"\uAE30\uBCF8\uAC12"}
           </button>
-          <a className="flex h-12 items-center justify-center rounded-lg bg-sky-500 text-sm font-black text-white no-underline" href="/start?web=1" aria-disabled={!isLoaded} onClick={(event) => { if (!saveSchedule()) event.preventDefault(); }}>
+          <Link className="flex h-12 items-center justify-center rounded-lg bg-sky-500 text-sm font-black text-white no-underline" href="/start?web=1" aria-disabled={!isLoaded} onClick={(event) => { if (!saveSchedule()) event.preventDefault(); }}>
             {"\uC9C0\uAE08 \uC2E4\uD589"}
-          </a>
+          </Link>
         </div>
       </section>
     </main>

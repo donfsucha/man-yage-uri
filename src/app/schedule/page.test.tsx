@@ -69,3 +69,26 @@ describe("schedule editing", () => {
     expect(JSON.parse(localStorage.getItem(scheduleStorageKey)!)[0].startTime).toBe("08:01");
   });
 });
+
+describe("inline reading plan", () => {
+  it("opens inline without saving or losing schedule edits and preserves reading checks", async () => {
+    render(<ScheduleSettingsPage />);
+    await ready();
+    fireEvent.change(screen.getAllByLabelText("콘텐츠")[0], { target: { value: "korean_bible_reading" } });
+    const toggle = screen.getByRole("button", { name: "성경 읽기표 펼치기" });
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    const panel = document.getElementById("schedule-reading-plan")!;
+    expect(panel.hidden).toBe(false);
+    expect(panel.className).not.toMatch(/fixed|absolute/);
+    fireEvent.click(screen.getByRole("button", { name: "창세기 1장 직접 읽음" }));
+    fireEvent.click(screen.getByRole("button", { name: "성경 읽기표 접기" }));
+    expect(panel.hidden).toBe(true);
+    expect(localStorage.getItem(scheduleStorageKey)).toBeNull();
+    expect((screen.getAllByLabelText("콘텐츠")[0] as HTMLSelectElement).value).toBe("korean_bible_reading");
+    fireEvent.click(screen.getByRole("button", { name: "성경 읽기표 펼치기" }));
+    expect(screen.getByRole("button", { name: "창세기 1장 직접 읽음" }).getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "저장" }));
+    expect(JSON.parse(localStorage.getItem(scheduleStorageKey)!)[0].contentKey).toBe("korean_bible_reading");
+  });
+});
