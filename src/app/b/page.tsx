@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChapterReadingPlan, type ChapterProgressHandle } from "@/components/xcan/chapter-reading-plan";
-import { chapterRangesForVideo } from "@/lib/xcan/chapter-progress";
+import { chapterRangesForVideo, type BibleChapter } from "@/lib/xcan/chapter-progress";
 import { requestVideoFullscreen } from "@/lib/xcan/fullscreen";
 import { useScreenWakeLock } from "@/lib/xcan/use-screen-wake-lock";
 import {
@@ -253,6 +253,11 @@ function toggleDay(completedDays: number[], day: number) {
   return Array.from(next).sort((a, b) => a - b);
 }
 
+const videoIndexByChapter = new Map<string, number>();
+koreanBibleVideos.forEach((video, index) => {
+  chapterRangesForVideo(video).forEach(({ key }) => videoIndexByChapter.set(key, index));
+});
+
 function getGroupKey(group: KoreanBibleBookGroup) {
   return `${group.book}-${group.startDay}`;
 }
@@ -270,6 +275,7 @@ export default function BibleWebStartPage() {
   const activeIndexRef = useRef(0);
   const completedDaysRef = useRef<number[]>([]);
   const planOpenRef = useRef(false);
+  const openedInitialAppPlanRef = useRef(false);
   const [savedProgress, setSavedProgress] = useState<SavedProgress>(emptyProgress);
   const [isReady, setIsReady] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -344,7 +350,10 @@ export default function BibleWebStartPage() {
     };
 
     if (new URLSearchParams(window.location.search).get("openPlan") === "1") {
-      window.xcanOpenReadingPlan();
+      if (!window.AndroidBot || !openedInitialAppPlanRef.current) {
+        if (window.AndroidBot) openedInitialAppPlanRef.current = true;
+        window.xcanOpenReadingPlan();
+      }
     }
 
     return () => {
@@ -381,6 +390,11 @@ export default function BibleWebStartPage() {
       playBibleVideo(playerRef.current, video, seconds);
       applyYoutubePlaybackRate(playerRef.current);
     }
+  };
+
+  const openChapterVideo = ({ key }: BibleChapter) => {
+    const index = videoIndexByChapter.get(key);
+    if (isReady && index !== undefined) startAtIndex(index, 0);
   };
 
   useEffect(() => {
@@ -581,7 +595,7 @@ export default function BibleWebStartPage() {
             </div>
 
             <div className="pr-1">
-              <ChapterReadingPlan onVideoProgressChange={setConfirmedVideoChapters} ref={chapterProgressRef} visible={isPlanOpen} currentBook={currentVideo.book} legacyCount={savedProgress.completedDays.length} />
+              <ChapterReadingPlan onVideoProgressChange={setConfirmedVideoChapters} ref={chapterProgressRef} visible={isPlanOpen} currentBook={currentVideo.book} legacyCount={savedProgress.completedDays.length} onOpenChapter={isXcanApp ? openChapterVideo : undefined} canOpenChapter={isReady} />
               {bookGroups.map((group) => {
                 const key = getGroupKey(group);
                 const isOpen = openGroupKey === key;
