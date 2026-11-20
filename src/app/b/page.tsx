@@ -275,6 +275,7 @@ export default function BibleWebStartPage() {
   const activeIndexRef = useRef(0);
   const completedDaysRef = useRef<number[]>([]);
   const planOpenRef = useRef(false);
+  const openedInitialAppPlanRef = useRef(false);
   const [savedProgress, setSavedProgress] = useState<SavedProgress>(emptyProgress);
   const [isReady, setIsReady] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -342,20 +343,23 @@ export default function BibleWebStartPage() {
 
   useEffect(() => {
     window.xcanOpenReadingPlan = () => {
-      setOpenGroupKey((value) => value ?? findGroupKeyForIndex(activeIndexRef.current));
+      setOpenGroupKey((value) => value ?? findGroupKeyForIndex(savedProgress.index));
       planOpenRef.current = true;
       setIsPlanOpen(true);
       setShowChrome(true);
     };
 
     if (new URLSearchParams(window.location.search).get("openPlan") === "1") {
-      window.xcanOpenReadingPlan();
+      if (!window.AndroidBot || !openedInitialAppPlanRef.current) {
+        if (window.AndroidBot) openedInitialAppPlanRef.current = true;
+        window.xcanOpenReadingPlan();
+      }
     }
 
     return () => {
       window.xcanOpenReadingPlan = undefined;
     };
-  }, [findGroupKeyForIndex]);
+  }, [findGroupKeyForIndex, savedProgress.index]);
 
   const setProgress = (progress: SavedProgress) => {
     activeIndexRef.current = progress.index;
