@@ -1,7 +1,7 @@
 "use client";
 
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
-import { allBibleChapters, bibleBooks, chapterRangesForVideo } from "@/lib/xcan/chapter-progress";
+import { allBibleChapters, bibleBooks, chapterRangesForVideo, type BibleChapter } from "@/lib/xcan/chapter-progress";
 import type { KoreanBibleVideo } from "@/lib/xcan/bible-reading";
 import { acceptedPlaybackSegment, coverageRatio, mergeCoverage, type Interval } from "@/lib/xcan/viewing-coverage";
 
@@ -27,7 +27,16 @@ export type ChapterProgressHandle = {
   finish: (video: KoreanBibleVideo, duration: number) => boolean;
   resetSample: () => void;
 };
-export const ChapterReadingPlan = forwardRef<ChapterProgressHandle, {visible:boolean; currentBook:string; legacyCount:number; onVideoProgressChange?:(keys:string[])=>void}>(function ChapterReadingPlan({visible,currentBook,legacyCount,onVideoProgressChange}, ref) {
+type ChapterReadingPlanProps = {
+  visible: boolean;
+  currentBook: string;
+  legacyCount: number;
+  onVideoProgressChange?: (keys: string[]) => void;
+  canOpenChapter?: boolean;
+  onOpenChapter?: (chapter: BibleChapter) => void;
+};
+
+export const ChapterReadingPlan = forwardRef<ChapterProgressHandle, ChapterReadingPlanProps>(function ChapterReadingPlan({visible,currentBook,legacyCount,onVideoProgressChange,onOpenChapter,canOpenChapter=false}, ref) {
   const data = useRef<ChapterRecord>(emptyRecord());
   const loaded = useRef(false);
   const last = useRef<{seconds:number;at:number;rate:number;id:string}|null>(null);
@@ -99,6 +108,7 @@ export const ChapterReadingPlan = forwardRef<ChapterProgressHandle, {visible:boo
     <p className="my-2 text-xs leading-relaxed text-white/80">영상 재생 {effectiveVideo.length}/1189장 · 직접 읽음 {record.manualRead.length}/1189장<br/>기존 일차 완료 {legacyCount}개는 그대로 보존됩니다. 과거 기록은 재생·읽기 여부를 구분할 수 없어 장별 기록에 자동 합산하지 않습니다.</p>
     <p className="mb-2 text-xs text-white/65">영상 종료 시 확인된 재생 구간이 95% 이상이면 포함된 장에 ‘영상 완료’를 표시합니다. 이해·실제 읽기를 인증하는 표시는 아닙니다. 같은 기기의 이 브라우저에만 저장됩니다.</p>
     <label className="text-xs font-bold">성경 선택 <select className="ml-2 max-w-full rounded bg-zinc-800 p-2 text-white" value={selected} onChange={event=>setBook(event.target.value)}>{bibleBooks.map(item=><option key={item.book}>{item.book}</option>)}</select></label>
+    {onOpenChapter && <p className="mt-2 text-xs text-white/75">{canOpenChapter ? "포함 영상 열기는 해당 장이 들어 있는 일차 영상의 처음부터 재생합니다." : "영상 준비 중입니다."}</p>}
     <div className="mt-2 max-h-52 overflow-y-auto">
       {allBibleChapters.filter(chapter=>chapter.book===selected).map(chapter=>{
         const played=record.videoCompleted.includes(chapter.key);
@@ -106,6 +116,7 @@ export const ChapterReadingPlan = forwardRef<ChapterProgressHandle, {visible:boo
         const read=record.manualRead.includes(chapter.key);
         return <div key={chapter.key} className="flex flex-wrap items-center gap-2 border-b border-white/10 py-2 text-xs">
           <span className="w-10 font-bold">{chapter.chapter}장</span>
+          {onOpenChapter && <button type="button" disabled={!canOpenChapter} aria-label={`${selected} ${chapter.chapter}장 포함 영상 열기`} onClick={() => onOpenChapter(chapter)} className="min-h-10 rounded bg-sky-800 px-3 font-bold text-white disabled:opacity-40">포함 영상 열기</button>}
           <span className={played&&!excluded?"text-sky-300":"text-white/50"}>{played&&!excluded?"영상 완료":"영상 미완료"}</span>
           <button type="button" aria-pressed={read} aria-label={`${selected} ${chapter.chapter}장 직접 읽음`} onClick={()=>toggleManual(chapter.key)} className={`min-h-10 rounded px-3 ${read?"bg-emerald-600":"bg-white/10"}`}>{read?"✓ 직접 읽음":"직접 읽음 체크"}</button>
           {played&&<button type="button" onClick={()=>toggleVideo(chapter.key)} className="min-h-10 rounded bg-white/10 px-2">{excluded?"영상 표시 복구":"영상 표시 취소"}</button>}
