@@ -1,3 +1,5 @@
+import { getYouTubeText, readYouTubeJson } from "./youtube-json";
+
 export type QtChannel = { name: string; url: string; pattern: RegExp; dated: boolean; };
 
 export const qtChannels: Record<string, QtChannel> = {
@@ -56,32 +58,36 @@ function datedScore(title: string, now: Date): number | null {
   return score <= current ? score : null;
 }
 
-export function findLatestQtVideo(html: string, channel: QtChannel, now = new Date()): Candidate | null {
-  const match = html.match(/(?:var\s+ytInitialData\s*=\s*|window\["ytInitialData"\]\s*=\s*)(\{[\s\S]*?\});\s*<\/script>/);
-  if (!match) return null;
+export function findQtVideoCandidates(html: string, channel: QtChannel, now = new Date()): Candidate[] {
+  const data = readYouTubeJson(html, "ytInitialData");
+  if (!data) return [];
   try {
-    const candidates = extractCandidates(JSON.parse(match[1])).filter((video) => {
+    const candidates = extractCandidates(data).filter((video) => {
       const title = video.title.normalize("NFC");
       return /^[\w-]{11}$/.test(video.id) && channel.pattern.test(title) &&
         !/(shorts|쇼츠)/i.test(title) && !/(members.only|members_only|회원\s*전용|upcoming|scheduled|예정)/i.test(video.details) &&
         /(?:ago|전|streamed|실시간)/i.test(video.details);
     });
-    if (!channel.dated) return candidates[0] ?? null;
+    if (!channel.dated) return candidates;
     const ranked = candidates.map((video) => ({ video, score: datedScore(video.title.normalize("NFC"), now) }))
       .filter((item): item is { video: Candidate; score: number } => item.score !== null)
       .sort((a, b) => b.score - a.score);
-    return ranked[0]?.video ?? null;
-  } catch { return null; }
+    return ranked.map(({ video }) => video);
+  } catch { return []; }
+}
+
+export function findLatestQtVideo(html: string, channel: QtChannel, now = new Date()): Candidate | null {
+  return findQtVideoCandidates(html, channel, now)[0] ?? null;
 }
 
 type QtReplay = { id: string; date: string };
 
-const verifiedQtReplays: Record<string, QtReplay> = {
-  "1": { id: "dN9P84jUjUo", date: "2026-11-22" },
-  "2": { id: "5woXUBKA3Po", date: "2026-11-22" },
-  "3": { id: "VpxYCqI8Ji0", date: "2026-11-21" },
-  "4": { id: "CJLl-kCTXIY", date: "2026-11-22" },
-  "5": { id: "UXTLRJDwPjs", date: "2026-11-20" },
+const verifiedQtReplays: Record<string, QtReplay[]> = {
+  "1": [{ id: "RsYafE7AelU", date: "2026-11-23" }, { id: "dN9P84jUjUo", date: "2026-11-22" }],
+  "2": [{ id: "Sfgr45B0wMM", date: "2026-11-23" }, { id: "5woXUBKA3Po", date: "2026-11-22" }],
+  "3": [{ id: "VEuB3QNUjuM", date: "2026-11-23" }, { id: "VpxYCqI8Ji0", date: "2026-11-21" }],
+  "4": [{ id: "xgCMSUkrT6Q", date: "2026-11-23" }, { id: "CJLl-kCTXIY", date: "2026-11-22" }],
+  "5": [{ id: "cF-7AJXcZ7s", date: "2026-11-23" }, { id: "UXTLRJDwPjs", date: "2026-11-20" }],
 };
 
 const qtChannelIds: Record<string, string> = {
@@ -97,50 +103,89 @@ export function qtKoreaDate(now: Date): string {
   return new Date(Date.UTC(year, month - 1, day)).toISOString().slice(0, 10);
 }
 
-export function verifiedQtReplay(content: string): QtReplay | null {
-  return Object.prototype.hasOwnProperty.call(verifiedQtReplays, content) ? verifiedQtReplays[content] : null;
+export function verifiedQtReplay(content: string, now = new Date()): QtReplay | null {
+  if (!Object.prototype.hasOwnProperty.call(verifiedQtReplays, content)) return null;
+  const today = qtKoreaDate(now);
+  return verifiedQtReplays[content].find(({ date }) => date <= today) ?? null;
 }
 
-export function parseQtWatchDate(html: string, content: string, id: string): string | null {
-  const match = html.match(/(?:var\s+ytInitialPlayerResponse\s*=\s*|window\["ytInitialPlayerResponse"\]\s*=\s*)(\{[\s\S]*?\});\s*<\/script>/);
-  if (!match || !verifiedQtReplay(content)) return null;
+function parseVerifiedQtWatch(html: string, content: string, id: string): { title: string; published: string | null } | null {
+  const payload = readYouTubeJson(html, "ytInitialPlayerResponse");
+  if (!payload || !Object.prototype.hasOwnProperty.call(qtChannelIds, content)) return null;
   try {
-    const data = JSON.parse(match[1]) as {
+    const data = payload as {
       playabilityStatus?: { status?: string; playableInEmbed?: boolean };
-      videoDetails?: { videoId?: string; channelId?: string; title?: string; isUpcoming?: boolean; isLive?: boolean };
+      videoDetails?: { videoId?: string; channelId?: string; title?: string; lengthSeconds?: string; isUpcoming?: boolean; isLive?: boolean };
       microformat?: { playerMicroformatRenderer?: { publishDate?: string; uploadDate?: string } };
     };
     const metadata = data.microformat?.playerMicroformatRenderer;
     const details = data.videoDetails;
-    if (data.playabilityStatus?.status !== "OK" || data.playabilityStatus.playableInEmbed === false ||
+    const title = details?.title?.normalize("NFC");
+    if (data.playabilityStatus?.status !== "OK" || data.playabilityStatus.playableInEmbed !== true ||
         details?.videoId !== id || details.channelId !== qtChannelIds[content] ||
-        !qtChannels[content].pattern.test(details.title?.normalize("NFC") ?? "") ||
-        details.isUpcoming || details.isLive) return null;
+        !title || !qtChannels[content].pattern.test(title) || /shorts|쇼츠/i.test(title) ||
+        details.isUpcoming || details.isLive || !/^\d+$/.test(details.lengthSeconds ?? "") || Number(details.lengthSeconds) <= 0) return null;
     const published = metadata?.publishDate;
-    if (!published) return null;
+    if (!published) return { title, published: null };
     const at = Date.parse(published);
-    if (!Number.isFinite(at)) return null;
+    if (!Number.isFinite(at)) return { title, published: null };
     if (/^\d{4}-\d\d-\d\d$/.test(published)) {
-      return new Date(at).toISOString().slice(0, 10) === published ? published : null;
+      return { title, published: new Date(at).toISOString().slice(0, 10) === published ? published : null };
     }
-    return /(?:Z|[+-]\d\d:\d\d)$/u.test(published) ? qtKoreaDate(new Date(at)) : null;
+    return { title, published: /(?:Z|[+-]\d\d:\d\d)$/u.test(published) ? qtKoreaDate(new Date(at)) : null };
   } catch { return null; }
 }
 
+export function parseQtWatchDate(html: string, content: string, id: string): string | null {
+  return parseVerifiedQtWatch(html, content, id)?.published ?? null;
+}
+
+export function qtFeedUrl(content: string): string {
+  return `https://www.youtube.com/feeds/videos.xml?channel_id=${qtChannelIds[content]}`;
+}
+
+function findQtFeedCandidates(xml: string, channel: QtChannel): Candidate[] {
+  const results: Candidate[] = [];
+  for (const [entry] of xml.matchAll(/<entry\b[\s\S]*?<\/entry>/g)) {
+    const id = entry.match(/<yt:videoId>([\w-]{11})<\/yt:videoId>/)?.[1];
+    const title = entry.match(/<title>([\s\S]*?)<\/title>/)?.[1].normalize("NFC") ?? "";
+    if (id && channel.pattern.test(title) && !/shorts|쇼츠/i.test(title)) results.push({ id, title, details: "" });
+  }
+  return results;
+}
+
+/** Discover via both official endpoints, then independently verify playable watch metadata. */
+export async function resolveQtPlayback(content: string, list: string, feed: string, now: Date, fetchWatch = getYouTubeText): Promise<QtReplay | null> {
+  if (!Object.prototype.hasOwnProperty.call(qtChannelIds, content)) return null;
+  const channel = qtChannels[content];
+  const listed = findQtVideoCandidates(list, channel, now).slice(0, 3);
+  const fed = findQtFeedCandidates(feed, channel).filter(({ title }) => !channel.dated || datedScore(title, now) !== null).slice(0, 3);
+  const ids = [...new Set([...listed, ...fed].map(({ id }) => id))];
+  const results = await Promise.all(ids.map(async (id): Promise<QtReplay | null> => {
+    try {
+      const watch = parseVerifiedQtWatch(await fetchWatch(`https://www.youtube.com/watch?v=${id}`), content, id);
+      if (!watch) return null;
+      const score = channel.dated ? datedScore(watch.title, now) : null;
+      const date = channel.dated ? (score === null ? null : new Date(score).toISOString().slice(0, 10)) : watch.published;
+      return date && date <= qtKoreaDate(now) ? { id, date } : null;
+    } catch { return null; }
+  }));
+  return results.reduce<QtReplay | null>((latest, item) => item && (!latest || item.date > latest.date) ? item : latest, null);
+}
+
 export function resolveDatedQtCandidate(content: string, candidate: Candidate | null, watchDate: string | null, now = new Date()): QtReplay | null {
-  if (!candidate || !verifiedQtReplay(content)) return null;
+  if (!candidate || !Object.prototype.hasOwnProperty.call(qtChannels, content)) return null;
   const legacyScore = qtChannels[content].dated ? datedScore(candidate.title.normalize("NFC"), now) : null;
   const date = legacyScore === null ? watchDate : new Date(legacyScore).toISOString().slice(0, 10);
   return date && date <= qtKoreaDate(now) ? { id: candidate.id, date } : null;
 }
 
 export function chooseDatedQtVideo(content: string, candidate: Candidate | null, watchDate: string | null, now = new Date()): QtReplay | null {
-  const seed = verifiedQtReplay(content);
-  if (!seed) return null;
+  const seed = verifiedQtReplay(content, now);
   const today = qtKoreaDate(now);
   const current = resolveDatedQtCandidate(content, candidate, watchDate, now);
-  if (current && (seed.date > today || current.date >= seed.date)) return current;
-  return seed.date <= today ? seed : null;
+  if (current && (!seed || current.date >= seed.date)) return current;
+  return seed && seed.date <= today ? seed : null;
 }
 
 export function qtVideoTitle(content: string, video: QtReplay, now = new Date(), fallback = false): string {
