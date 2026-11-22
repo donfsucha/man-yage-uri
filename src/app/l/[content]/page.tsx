@@ -1,32 +1,48 @@
 import { notFound } from "next/navigation";
-import { chooseDatedQtVideo, findLatestQtVideo, parseQtWatchDate, qtChannels, qtVideoTitle, verifiedQtReplay } from "@/lib/xcan/qt-videos";
+import { findLatestQtVideo, parseQtWatchDate, qtChannels, qtKoreaDate, qtVideoTitle, resolveDatedQtCandidate, verifiedQtReplay } from "@/lib/xcan/qt-videos";
+import { unstable_cache } from "next/cache";
+import { isRecentReplay, needsReplayLabel, playbackRevalidationSeconds } from "@/lib/xcan/dated-replay";
 import SuwonPlayer from "../../suwon/suwon-player";
 
 export const dynamic = "force-dynamic";
+
+const lookupQtVideo = unstable_cache(async (content: string) => {
+  const channel = qtChannels[content];
+  const now = new Date();
+  const response = await fetch(channel.url, { cache: "no-store", signal: AbortSignal.timeout(5000) });
+  const candidate = response.ok ? findLatestQtVideo(await response.text(), channel, now) : null;
+  const seed = verifiedQtReplay(content);
+  let watchDate: string | null = null;
+  if (candidate && !channel.dated) {
+    if (seed && candidate.id === seed.id) watchDate = seed.date;
+    else {
+      const watch = await fetch(`https://www.youtube.com/watch?v=${candidate.id}`, { cache: "no-store", signal: AbortSignal.timeout(5000) });
+      if (watch.ok) watchDate = parseQtWatchDate(await watch.text(), content, candidate.id);
+    }
+  }
+  const matched = resolveDatedQtCandidate(content, candidate, watchDate, now);
+  if (!matched || !isRecentReplay(matched.date, qtKoreaDate(now))) {
+    throw new Error("No eligible QT source found");
+  }
+  return { matched, checkedAt: now.getTime() };
+}, ["xcan-qt-lookup-v1"], { revalidate: playbackRevalidationSeconds });
 
 export default async function QtVideoPage({ params }: { params: Promise<{ content: string }> }) {
   const { content } = await params;
   if (!Object.prototype.hasOwnProperty.call(qtChannels, content)) notFound();
   const channel = qtChannels[content];
   const now = new Date();
-  let candidate: ReturnType<typeof findLatestQtVideo> = null;
-  let watchDate: string | null = null;
-  try {
-    const response = await fetch(channel.url, { cache: "no-store", signal: AbortSignal.timeout(5000) });
-    if (response.ok) candidate = findLatestQtVideo(await response.text(), channel, now);
-    const seed = verifiedQtReplay(content);
-    if (candidate && !channel.dated && candidate.id !== seed?.id) {
-      const watch = await fetch(`https://www.youtube.com/watch?v=${candidate.id}`, { cache: "no-store", signal: AbortSignal.timeout(5000) });
-      if (watch.ok) watchDate = parseQtWatchDate(await watch.text(), content, candidate.id);
-    }
-  } catch {
-    // Keep a known dated replay when the channel or watch metadata is unavailable.
-  }
-  const video = chooseDatedQtVideo(content, candidate, watchDate, now);
+  const today = qtKoreaDate(now);
+  const cached = await lookupQtVideo(content).catch(() => null);
+  const latest = cached?.matched && isRecentReplay(cached.matched.date, today) ? cached.matched : null;
+  const known = verifiedQtReplay(content);
+  const seed = known && isRecentReplay(known.date, today) ? known : null;
+  const video = latest && (!seed || latest.date >= seed.date) ? latest : seed;
+  const fallback = !cached || video === seed || needsReplayLabel(cached.checkedAt, now.getTime());
   if (video) return (
     <>
       <script dangerouslySetInnerHTML={{ __html: "if (window.AndroidBot) window.xcanFullscreenClickBound = true;" }} />
-      <SuwonPlayer videoId={video.id} title={qtVideoTitle(content, video, now)} />
+      <SuwonPlayer videoId={video.id} title={qtVideoTitle(content, video, now, fallback)} />
     </>
   );
   return (
