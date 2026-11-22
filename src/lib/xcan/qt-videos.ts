@@ -92,7 +92,7 @@ const qtChannelIds: Record<string, string> = {
   "5": "UCqCqf21juyyL_8peGs2CWGg",
 };
 
-function dateStamp(now: Date): string {
+export function qtKoreaDate(now: Date): string {
   const { year, month, day } = koreaDate(now);
   return new Date(Date.UTC(year, month - 1, day)).toISOString().slice(0, 10);
 }
@@ -123,22 +123,27 @@ export function parseQtWatchDate(html: string, content: string, id: string): str
     if (/^\d{4}-\d\d-\d\d$/.test(published)) {
       return new Date(at).toISOString().slice(0, 10) === published ? published : null;
     }
-    return /(?:Z|[+-]\d\d:\d\d)$/u.test(published) ? dateStamp(new Date(at)) : null;
+    return /(?:Z|[+-]\d\d:\d\d)$/u.test(published) ? qtKoreaDate(new Date(at)) : null;
   } catch { return null; }
+}
+
+export function resolveDatedQtCandidate(content: string, candidate: Candidate | null, watchDate: string | null, now = new Date()): QtReplay | null {
+  if (!candidate || !verifiedQtReplay(content)) return null;
+  const legacyScore = qtChannels[content].dated ? datedScore(candidate.title.normalize("NFC"), now) : null;
+  const date = legacyScore === null ? watchDate : new Date(legacyScore).toISOString().slice(0, 10);
+  return date && date <= qtKoreaDate(now) ? { id: candidate.id, date } : null;
 }
 
 export function chooseDatedQtVideo(content: string, candidate: Candidate | null, watchDate: string | null, now = new Date()): QtReplay | null {
   const seed = verifiedQtReplay(content);
   if (!seed) return null;
-  const today = dateStamp(now);
-  const legacyScore = candidate && qtChannels[content].dated ? datedScore(candidate.title.normalize("NFC"), now) : null;
-  const date = legacyScore === null ? watchDate : new Date(legacyScore).toISOString().slice(0, 10);
-  const current = candidate && date && date <= today ? { id: candidate.id, date } : null;
+  const today = qtKoreaDate(now);
+  const current = resolveDatedQtCandidate(content, candidate, watchDate, now);
   if (current && (seed.date > today || current.date >= seed.date)) return current;
   return seed.date <= today ? seed : null;
 }
 
-export function qtVideoTitle(content: string, video: QtReplay, now = new Date()): string {
+export function qtVideoTitle(content: string, video: QtReplay, now = new Date(), fallback = false): string {
   const [year, month, day] = video.date.split("-");
-  return `${qtChannels[content].name} · ${year}년 ${Number(month)}월 ${Number(day)}일${video.date === dateStamp(now) ? "" : " 다시보기"}`;
+  return `${qtChannels[content].name} · ${year}년 ${Number(month)}월 ${Number(day)}일${!fallback && video.date === qtKoreaDate(now) ? "" : " 다시보기"}`;
 }
