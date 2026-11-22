@@ -45,6 +45,7 @@ describe("dated QT fallback", () => {
     }
     expect(chooseDatedQtVideo("suwon", null, null, date)).toBeNull();
     expect(chooseDatedQtVideo("1", null, null, now)).toBeNull();
+    expect(qtVideoTitle("1", verifiedQtReplay("1")!, date, true)).toContain("다시보기");
     expect(qtVideoTitle("3", verifiedQtReplay("3")!, date)).toContain("2026년 11월 21일 다시보기");
   });
   it("does not let an old result displace a known more recent episode", () => {
