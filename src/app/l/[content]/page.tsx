@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
-import { findLatestQtVideo, parseQtWatchDate, qtChannels, qtKoreaDate, qtVideoTitle, resolveDatedQtCandidate, verifiedQtReplay } from "@/lib/xcan/qt-videos";
+import { qtChannels, qtFeedUrl, qtKoreaDate, qtVideoTitle, resolveQtPlayback, verifiedQtReplay } from "@/lib/xcan/qt-videos";
+import { getYouTubeText } from "@/lib/xcan/youtube-json";
 import { unstable_cache } from "next/cache";
 import { isRecentReplay, needsReplayLabel, playbackRevalidationSeconds } from "@/lib/xcan/dated-replay";
 import SuwonPlayer from "../../suwon/suwon-player";
@@ -9,23 +10,13 @@ export const dynamic = "force-dynamic";
 const lookupQtVideo = unstable_cache(async (content: string) => {
   const channel = qtChannels[content];
   const now = new Date();
-  const response = await fetch(channel.url, { cache: "no-store", signal: AbortSignal.timeout(5000) });
-  const candidate = response.ok ? findLatestQtVideo(await response.text(), channel, now) : null;
-  const seed = verifiedQtReplay(content);
-  let watchDate: string | null = null;
-  if (candidate && !channel.dated) {
-    if (seed && candidate.id === seed.id) watchDate = seed.date;
-    else {
-      const watch = await fetch(`https://www.youtube.com/watch?v=${candidate.id}`, { cache: "no-store", signal: AbortSignal.timeout(5000) });
-      if (watch.ok) watchDate = parseQtWatchDate(await watch.text(), content, candidate.id);
-    }
-  }
-  const matched = resolveDatedQtCandidate(content, candidate, watchDate, now);
+  const [list, feed] = await Promise.all([getYouTubeText(channel.url), getYouTubeText(qtFeedUrl(content))]);
+  const matched = await resolveQtPlayback(content, list, feed, now);
   if (!matched || !isRecentReplay(matched.date, qtKoreaDate(now))) {
     throw new Error("No eligible QT source found");
   }
   return { matched, checkedAt: now.getTime() };
-}, ["xcan-qt-lookup-v1"], { revalidate: playbackRevalidationSeconds });
+}, ["xcan-qt-lookup-v2"], { revalidate: playbackRevalidationSeconds });
 
 export default async function QtVideoPage({ params }: { params: Promise<{ content: string }> }) {
   const { content } = await params;
@@ -35,10 +26,10 @@ export default async function QtVideoPage({ params }: { params: Promise<{ conten
   const today = qtKoreaDate(now);
   const cached = await lookupQtVideo(content).catch(() => null);
   const latest = cached?.matched && isRecentReplay(cached.matched.date, today) ? cached.matched : null;
-  const known = verifiedQtReplay(content);
+  const known = verifiedQtReplay(content, now);
   const seed = known && isRecentReplay(known.date, today) ? known : null;
   const video = latest && (!seed || latest.date >= seed.date) ? latest : seed;
-  const fallback = !cached || video === seed || needsReplayLabel(cached.checkedAt, now.getTime());
+  const fallback = !cached || video === seed || (video?.date !== today && needsReplayLabel(cached.checkedAt, now.getTime()));
   if (video) return (
     <>
       <script dangerouslySetInnerHTML={{ __html: "if (window.AndroidBot) window.xcanFullscreenClickBound = true;" }} />
