@@ -60,3 +60,79 @@ export function findTodaySuwonWorship(xml: string, now = new Date()): string | n
   }
   return latest?.url ?? null;
 }
+
+export type SuwonWorship = { videoId: string; date: string | null; live: boolean };
+
+export const verifiedSuwonReplay: SuwonWorship = { videoId: "rx3AhCrltVM", date: "2026-11-20", live: false };
+
+export function suwonKoreaDate(now = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(now);
+  const part = (type: string) => parts.find((item) => item.type === type)?.value;
+  return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
+function worshipDate(text: string): string | null {
+  const date = text.match(/(\d{2,4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일/);
+  if (!date) return null;
+  const year = Number(date[1]);
+  const iso = `${year < 100 ? 2000 + year : year}-${date[2].padStart(2, "0")}-${date[3].padStart(2, "0")}`;
+  const timestamp = Date.parse(iso);
+  return Number.isFinite(timestamp) && new Date(timestamp).toISOString().slice(0, 10) === iso ? iso : null;
+}
+
+export function findDatedSuwonFeedWorship(xml: string, now = new Date()): SuwonWorship | null {
+  const today = suwonKoreaDate(now);
+  let latest: SuwonWorship | null = null;
+  for (const [entry] of xml.matchAll(/<entry\b[\s\S]*?<\/entry>/g)) {
+    const title = entry.match(/<title>([\s\S]*?)<\/title>/)?.[1] ?? "";
+    const description = entry.match(/<media:description>([\s\S]*?)<\/media:description>/)?.[1] ?? "";
+    const videoId = entry.match(/<yt:videoId>([\w-]{11})<\/yt:videoId>/)?.[1];
+    const date = worshipDate(title) ?? worshipDate(description);
+    if (!/새벽\s*(기도회|예배)/.test(title) || !videoId || !date || date > today) continue;
+    if (!latest?.date || date > latest.date) latest = { videoId, date, live: false };
+  }
+  return latest;
+}
+
+export function parseSuwonWatchWorship(html: string, candidateId: string): SuwonWorship | null {
+  const match = html.match(/(?:var\s+ytInitialPlayerResponse\s*=\s*|window\["ytInitialPlayerResponse"\]\s*=\s*)(\{[\s\S]*?\});\s*<\/script>/);
+  if (!match) return null;
+  try {
+    const data = JSON.parse(match[1]) as {
+      playabilityStatus?: { status?: string; playableInEmbed?: boolean };
+      videoDetails?: { videoId?: string; channelId?: string; title?: string; shortDescription?: string; isLive?: boolean; isUpcoming?: boolean };
+      microformat?: { playerMicroformatRenderer?: { liveBroadcastDetails?: { isLiveNow?: boolean; startTimestamp?: string } } };
+    };
+    const details = data.videoDetails;
+    const broadcast = data.microformat?.playerMicroformatRenderer?.liveBroadcastDetails;
+    if (data.playabilityStatus?.status !== "OK" || data.playabilityStatus.playableInEmbed === false ||
+        details?.videoId !== candidateId || details.channelId !== "UCpT3ZKDtCRX67Knkzl7Uc6w" ||
+        !/새벽\s*(기도회|예배)/.test(details.title ?? "") || details.isUpcoming) return null;
+    const live = details.isLive === true || broadcast?.isLiveNow === true;
+    const start = broadcast?.startTimestamp ? Date.parse(broadcast.startTimestamp) : NaN;
+    const date = worshipDate(details.title ?? "") ?? worshipDate(details.shortDescription ?? "") ??
+      (Number.isFinite(start) ? suwonKoreaDate(new Date(start)) : null);
+    return live || date ? { videoId: candidateId, date, live } : null;
+  } catch {
+    return null;
+  }
+}
+
+export function chooseSuwonWorship(candidates: (SuwonWorship | null)[], now = new Date()): SuwonWorship | null {
+  const today = suwonKoreaDate(now);
+  const valid = candidates.filter((item): item is SuwonWorship =>
+    item !== null && (item.date ? item.date <= today : item.live));
+  return valid.find((item) => item.live && (!item.date || item.date === today)) ??
+    valid.reduce<SuwonWorship | null>((latest, item) =>
+      item.date && (!latest?.date || item.date > latest.date) ? item : latest, null);
+}
+
+export function suwonWorshipTitle(worship: SuwonWorship, now = new Date()): string {
+  const name = "수원제일교회 새벽기도회";
+  if (worship.live && (!worship.date || worship.date === suwonKoreaDate(now))) return `${name} · 실시간`;
+  if (!worship.date) return name;
+  const [year, month, day] = worship.date.split("-");
+  return `${name} · ${year}년 ${Number(month)}월 ${Number(day)}일${worship.date === suwonKoreaDate(now) ? "" : " 다시보기"}`;
+}
