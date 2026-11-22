@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { findLatestQtVideo, qtChannels } from "@/lib/xcan/qt-videos";
+import { chooseDatedQtVideo, findLatestQtVideo, parseQtWatchDate, qtChannels, qtVideoTitle, verifiedQtReplay } from "@/lib/xcan/qt-videos";
 import SuwonPlayer from "../../suwon/suwon-player";
 
 export const dynamic = "force-dynamic";
@@ -8,17 +8,25 @@ export default async function QtVideoPage({ params }: { params: Promise<{ conten
   const { content } = await params;
   if (!Object.prototype.hasOwnProperty.call(qtChannels, content)) notFound();
   const channel = qtChannels[content];
-  let video: ReturnType<typeof findLatestQtVideo> = null;
+  const now = new Date();
+  let candidate: ReturnType<typeof findLatestQtVideo> = null;
+  let watchDate: string | null = null;
   try {
-    const response = await fetch(channel.url, { cache: "no-store", signal: AbortSignal.timeout(10000) });
-    if (response.ok) video = findLatestQtVideo(await response.text(), channel);
+    const response = await fetch(channel.url, { cache: "no-store", signal: AbortSignal.timeout(5000) });
+    if (response.ok) candidate = findLatestQtVideo(await response.text(), channel, now);
+    const seed = verifiedQtReplay(content);
+    if (candidate && !channel.dated && candidate.id !== seed?.id) {
+      const watch = await fetch(`https://www.youtube.com/watch?v=${candidate.id}`, { cache: "no-store", signal: AbortSignal.timeout(5000) });
+      if (watch.ok) watchDate = parseQtWatchDate(await watch.text(), content, candidate.id);
+    }
   } catch {
-    // Let the viewer retry when YouTube is temporarily unavailable.
+    // Keep a known dated replay when the channel or watch metadata is unavailable.
   }
+  const video = chooseDatedQtVideo(content, candidate, watchDate, now);
   if (video) return (
     <>
       <script dangerouslySetInnerHTML={{ __html: "if (window.AndroidBot) window.xcanFullscreenClickBound = true;" }} />
-      <SuwonPlayer videoId={video.id} title={channel.name} />
+      <SuwonPlayer videoId={video.id} title={qtVideoTitle(content, video, now)} />
     </>
   );
   return (
