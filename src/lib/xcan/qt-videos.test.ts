@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findLatestQtVideo, qtChannels } from "./qt-videos";
+import { chooseDatedQtVideo, findLatestQtVideo, parseQtWatchDate, qtChannels, qtVideoTitle, verifiedQtReplay } from "./qt-videos";
 
 const now = new Date("2026-11-14T02:00:00Z");
 function page(items: { id: string; title: string; detail?: string }[]) {
@@ -32,5 +32,41 @@ describe("findLatestQtVideo", () => {
     const html = page([v("aaaaaaaaaaa", "새롭게 하소서", "회원 전용"), v("bbbbbbbbbbb", "새롭게하소서", "예정"), v("ccccccccccc", "다른 영상"), v("ddddddddddd", "간증 이야기 | 새롭게하소서")]);
     expect(findLatestQtVideo(html, qtChannels["5"], now)?.id).toBe("ddddddddddd");
     expect(findLatestQtVideo("not a youtube page", qtChannels["5"], now)).toBeNull();
+  });
+});
+
+describe("dated QT fallback", () => {
+  const date = new Date("2026-11-22T00:00:00Z");
+  it("keeps isolated verified replay for each series on source failure", () => {
+    const ids = ["dN9P84jUjUo", "5woXUBKA3Po", "VpxYCqI8Ji0", "CJLl-kCTXIY", "UXTLRJDwPjs"];
+    for (const [index, id] of ids.entries()) {
+      const key = String(index + 1);
+      expect(chooseDatedQtVideo(key, null, null, date)?.id).toBe(id);
+    }
+    expect(chooseDatedQtVideo("suwon", null, null, date)).toBeNull();
+    expect(chooseDatedQtVideo("1", null, null, now)).toBeNull();
+    expect(qtVideoTitle("1", verifiedQtReplay("1")!, date, true)).toContain("다시보기");
+    expect(qtVideoTitle("3", verifiedQtReplay("3")!, date)).toContain("2026년 11월 21일 다시보기");
+  });
+  it("does not let an old result displace a known more recent episode", () => {
+    const old = { id: "aaaaaaaaaaa", title: "2026년 11월 20일 매일성경", details: "2 days ago" };
+    expect(chooseDatedQtVideo("1", old, null, date)?.id).toBe("dN9P84jUjUo");
+  });
+  it("prefers newer valid candidates but never tomorrow's dated publication", () => {
+    const date = new Date("2026-11-23T00:00:00Z");
+    const video = { id: "aaaaaaaaaaa", title: "2026년 11월 23일 매일성경", details: "1 day ago" };
+    const future = { ...video, title: "2026년 11월 24일 매일성경" };
+    expect(chooseDatedQtVideo("1", video, null, date)?.id).toBe(video.id);
+    expect(chooseDatedQtVideo("1", future, null, date)?.id).toBe("dN9P84jUjUo");
+    expect(chooseDatedQtVideo("5", video, "2026-11-23", date)?.id).toBe(video.id);
+  });
+  it("does not accept an unrelated or non-embeddable watch page", () => {
+    const page = (channelId: string, playableInEmbed = true) => `<script>var ytInitialPlayerResponse = ${JSON.stringify({
+      playabilityStatus: {status: "OK", playableInEmbed}, videoDetails: {videoId: "UXTLRJDwPjs", channelId, title: "새롭게 하소서"},
+      microformat: {playerMicroformatRenderer: {publishDate: "2026-11-19T23:49:40-07:00"}},
+    })};</script>`;
+    expect(parseQtWatchDate(page("UCqCqf21juyyL_8peGs2CWGg"), "5", "UXTLRJDwPjs")).toBe("2026-11-20");
+    expect(parseQtWatchDate(page("UCqCqf21juyyL_8peGs2CWGg", false), "5", "UXTLRJDwPjs")).toBeNull();
+    expect(parseQtWatchDate(page("wrong"), "5", "UXTLRJDwPjs")).toBeNull();
   });
 });
