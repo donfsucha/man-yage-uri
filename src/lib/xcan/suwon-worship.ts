@@ -20,9 +20,10 @@ export function findLatestSuwonStream(html: string): string | null {
         const video = record.lockupViewModel as { contentId?: unknown; metadata?: { lockupMetadataViewModel?: { title?: { content?: unknown }; metadata?: unknown } } };
         const title = video.metadata?.lockupMetadataViewModel?.title?.content;
         const details = JSON.stringify(video.metadata?.lockupMetadataViewModel?.metadata ?? "");
+        const liveMarker = /BADGE_STYLE_TYPE_LIVE_NOW|LIVE_NOW|watching now|시청 중|실시간 스트리밍 중/i.test(JSON.stringify(video));
         if (typeof title === "string" && /새벽\s*(기도회|예배)/.test(title) &&
             typeof video.contentId === "string" && /^[\w-]{11}$/.test(video.contentId) &&
-            /(?:ago|streamed|전|실시간)/i.test(details) && !/(?:upcoming|scheduled|예정)/i.test(details)) {
+            (liveMarker || /(?:ago|streamed|전|실시간)/i.test(details)) && !/(?:upcoming|scheduled|예정)/i.test(details)) {
           return `https://www.youtube.com/watch?v=${video.contentId}`;
         }
       }
@@ -129,10 +130,10 @@ export function chooseSuwonWorship(candidates: (SuwonWorship | null)[], now = ne
       item.date && (!latest?.date || item.date > latest.date) ? item : latest, null);
 }
 
-export function suwonWorshipTitle(worship: SuwonWorship, now = new Date()): string {
+export function suwonWorshipTitle(worship: SuwonWorship, now = new Date(), fallback = false): string {
   const name = "수원제일교회 새벽기도회";
   if (worship.live && (!worship.date || worship.date === suwonKoreaDate(now))) return `${name} · 실시간`;
   if (!worship.date) return name;
   const [year, month, day] = worship.date.split("-");
-  return `${name} · ${year}년 ${Number(month)}월 ${Number(day)}일${worship.date === suwonKoreaDate(now) ? "" : " 다시보기"}`;
+  return `${name} · ${year}년 ${Number(month)}월 ${Number(day)}일${!fallback && worship.date === suwonKoreaDate(now) ? "" : " 다시보기"}`;
 }
