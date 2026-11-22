@@ -1,37 +1,23 @@
 import {
-  chooseSuwonWorship, findDatedSuwonFeedWorship, findLatestSuwonStream, parseSuwonWatchWorship,
+  chooseSuwonWorship, previousSuwonReplay, resolveSuwonPlayback,
   suwonFeedUrl, suwonKoreaDate, suwonStreamsUrl, suwonWorshipTitle, verifiedSuwonReplay,
 } from "@/lib/xcan/suwon-worship";
+import { getYouTubeText } from "@/lib/xcan/youtube-json";
 import { unstable_cache } from "next/cache";
 import { isRecentReplay, needsReplayLabel, playbackRevalidationSeconds } from "@/lib/xcan/dated-replay";
 import SuwonPlayer from "../../suwon/suwon-player";
 
 export const dynamic = "force-dynamic";
 
-async function fetchSource(url: string): Promise<string> {
-  try {
-    const response = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(5000) });
-    return response.ok ? await response.text() : "";
-  } catch {
-    return "";
-  }
-}
-
 const lookupSuwonWorship = unstable_cache(async () => {
-  const [streams, feed] = await Promise.all([fetchSource(suwonStreamsUrl), fetchSource(suwonFeedUrl)]);
+  const [streams, feed] = await Promise.all([getYouTubeText(suwonStreamsUrl), getYouTubeText(suwonFeedUrl)]);
   const now = new Date();
-  const stream = findLatestSuwonStream(streams);
-  const candidateId = stream ? new URL(stream).searchParams.get("v") : null;
-  const feedWorship = findDatedSuwonFeedWorship(feed, now);
-  const streamWorship = candidateId
-    ? parseSuwonWatchWorship(await fetchSource(`https://www.youtube.com/watch?v=${candidateId}`), candidateId)
-    : null;
-  const matched = chooseSuwonWorship([streamWorship, feedWorship], now);
+  const matched = await resolveSuwonPlayback(streams, feed, now);
   if (!matched || (!matched.live && (!matched.date || !isRecentReplay(matched.date, suwonKoreaDate(now))))) {
     throw new Error("No eligible Suwon dawn source found");
   }
   return { matched, checkedAt: now.getTime() };
-}, ["xcan-suwon-dawn-lookup-v1"], { revalidate: playbackRevalidationSeconds });
+}, ["xcan-suwon-dawn-lookup-v2"], { revalidate: playbackRevalidationSeconds });
 
 export default async function SuwonWorshipPage() {
   const now = new Date();
@@ -40,7 +26,7 @@ export default async function SuwonWorshipPage() {
   const stale = !cached || needsReplayLabel(cached.checkedAt, now.getTime());
   const liveOrReplay = cached && ((cached.matched.live && !stale) ||
     (!cached.matched.live && cached.matched.date && isRecentReplay(cached.matched.date, today))) ? cached.matched : null;
-  const seed = verifiedSuwonReplay.date && isRecentReplay(verifiedSuwonReplay.date, today) ? verifiedSuwonReplay : null;
+  const seed = [verifiedSuwonReplay, previousSuwonReplay].find((item) => item.date && isRecentReplay(item.date, today)) ?? null;
   const worship = chooseSuwonWorship([liveOrReplay, seed], now);
   const fallback = stale || worship === seed;
   if (worship) return (

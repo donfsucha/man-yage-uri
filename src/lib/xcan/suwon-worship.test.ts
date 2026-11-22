@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chooseSuwonWorship, findDatedSuwonFeedWorship, findLatestSuwonStream, findTodaySuwonWorship, parseSuwonWatchWorship, suwonWorshipTitle, verifiedSuwonReplay } from "./suwon-worship";
+import { chooseSuwonWorship, findDatedSuwonFeedWorship, findLatestSuwonStream, findTodaySuwonWorship, parseSuwonWatchWorship, previousSuwonReplay, resolveSuwonPlayback, suwonWorshipTitle } from "./suwon-worship";
 
 const entry = (title: string, date: string, id = "qVqgT2ju4mc") => `<entry><yt:videoId>${id}</yt:videoId><title>${title}</title><media:description>${date}</media:description></entry>`;
 const now = new Date("2026-11-11T22:00:00Z");
@@ -35,7 +35,7 @@ describe("findLatestSuwonStream", () => {
 
 describe("dated Suwon worship fallback", () => {
   const november22 = new Date("2026-11-21T22:00:00Z");
-  const replayPage = (date: string, channelId = "UCpT3ZKDtCRX67Knkzl7Uc6w", extra = {}) => `<script>var ytInitialPlayerResponse = ${JSON.stringify({playabilityStatus: {status: "OK", playableInEmbed: true}, videoDetails: {videoId: "rx3AhCrltVM", channelId, title: "수원제일교회 새벽기도회", shortDescription: date, ...extra}})};</script>`;
+  const replayPage = (date: string, channelId = "UCpT3ZKDtCRX67Knkzl7Uc6w", extra = {}) => `<script>var ytInitialPlayerResponse = ${JSON.stringify({playabilityStatus: {status: "OK", playableInEmbed: true}, videoDetails: {videoId: "rx3AhCrltVM", channelId, title: "수원제일교회 새벽기도회", shortDescription: date, lengthSeconds: "2700", ...extra}})};</script>`;
 
   it("keeps only confirmed past/current dawn entries and respects KST", () => {
     const xml = entry("새벽기도회", "26년 11월 23일", "aaaaaaaaaaa") +
@@ -47,18 +47,18 @@ describe("dated Suwon worship fallback", () => {
   });
 
   it("uses verified dated replay when no upstream candidate can be used", () => {
-    const result = chooseSuwonWorship([null, null, verifiedSuwonReplay], november22)!;
-    expect(result).toEqual(verifiedSuwonReplay);
+    const result = chooseSuwonWorship([null, null, previousSuwonReplay], november22)!;
+    expect(result).toEqual(previousSuwonReplay);
     expect(suwonWorshipTitle(result, november22)).toContain("2026년 11월 20일 다시보기");
   });
 
   it("prefers today's verified video or a genuinely live stream over the seed", () => {
     const today = {videoId: "eeeeeeeeeee", date: "2026-11-22", live: false};
     const live = {videoId: "ddddddddddd", date: null, live: true};
-    expect(chooseSuwonWorship([verifiedSuwonReplay, today], november22)).toEqual(today);
+    expect(chooseSuwonWorship([previousSuwonReplay, today], november22)).toEqual(today);
     expect(suwonWorshipTitle(today, november22)).not.toContain("다시보기");
     expect(suwonWorshipTitle(today, november22, true)).toContain("다시보기");
-    expect(chooseSuwonWorship([today, live, verifiedSuwonReplay], november22)).toEqual(live);
+    expect(chooseSuwonWorship([today, live, previousSuwonReplay], november22)).toEqual(live);
     expect(suwonWorshipTitle(live, november22)).toContain("실시간");
   });
 
@@ -71,9 +71,38 @@ describe("dated Suwon worship fallback", () => {
   });
 
   it("checks the watch-page identity, date and broadcast state", () => {
-    expect(parseSuwonWatchWorship(replayPage("26년 11월 20일 금요일 새벽기도회"), "rx3AhCrltVM")).toEqual(verifiedSuwonReplay);
+    expect(parseSuwonWatchWorship(replayPage("26년 11월 20일 금요일 새벽기도회"), "rx3AhCrltVM")).toEqual(previousSuwonReplay);
     expect(parseSuwonWatchWorship(replayPage("26년 11월 20일", "wrong"), "rx3AhCrltVM")).toBeNull();
     expect(parseSuwonWatchWorship(replayPage(""), "rx3AhCrltVM")).toBeNull();
     expect(parseSuwonWatchWorship(replayPage("", undefined, {isUpcoming: true}), "rx3AhCrltVM")).toBeNull();
+  });
+});
+
+describe("Suwon discovery and watch verification", () => {
+  const time = new Date("2026-11-22T22:01:00Z");
+  const date = "26년 11월 23일";
+  const watch = (videoId: string, status: string, duration: string, live = false) => `<script>window["ytInitialPlayerResponse"] = ${JSON.stringify({
+    playabilityStatus: { status, playableInEmbed: status === "OK" },
+    videoDetails: { videoId, channelId: "UCpT3ZKDtCRX67Knkzl7Uc6w", title: '수원제일교회 새벽기도회', shortDescription: `${date} {말씀} "인용"`, lengthSeconds: duration },
+    microformat: { playerMicroformatRenderer: { liveBroadcastDetails: { isLiveNow: live } } },
+  })}; var following = true;</script>`;
+
+  it("skips same-date offline zero-length RSS entry and continues to completed 2703-second replay", async () => {
+    const feed = entry("새벽기도회", date, "fiQpNKbegYw") + entry("새벽기도회", date, "RPCDnFNlM7Q");
+    const found = await resolveSuwonPlayback("", feed, time, async (url) => url.endsWith("fiQpNKbegYw")
+      ? watch("fiQpNKbegYw", "LIVE_STREAM_OFFLINE", "0")
+      : watch("RPCDnFNlM7Q", "OK", "2703"));
+    expect(found).toEqual({ videoId: "RPCDnFNlM7Q", date: "2026-11-23", live: false });
+    expect(parseSuwonWatchWorship(watch("fiQpNKbegYw", "OK", "0"), "fiQpNKbegYw")).toBeNull();
+    expect(parseSuwonWatchWorship(watch("fiQpNKbegYw", "OK", "0", true), "fiQpNKbegYw")?.live).toBe(true);
+  });
+
+  it("accepts listing JSON followed by another statement and leaves fallback on malformed watch", async () => {
+    const data = {items: [{lockupViewModel: {contentId: "RPCDnFNlM7Q", metadata: {lockupMetadataViewModel: {
+      title: {content: '새벽기도회 {말씀} "인용"'}, metadata: {text: "Streamed 2 hours ago"},
+    }}}}]};
+    const streams = `<script>var ytInitialData = ${JSON.stringify(data)}; var following = true;</script>`;
+    expect(findLatestSuwonStream(streams)).toBe("https://www.youtube.com/watch?v=RPCDnFNlM7Q");
+    expect(await resolveSuwonPlayback(streams, "", time, async () => '<script>var ytInitialPlayerResponse = {</script>')).toBeNull();
   });
 });
