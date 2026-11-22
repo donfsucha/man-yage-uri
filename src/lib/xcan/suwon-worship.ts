@@ -1,19 +1,18 @@
+import { getYouTubeText, readYouTubeJson } from "./youtube-json";
+
 export const suwonFeedUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=UCpT3ZKDtCRX67Knkzl7Uc6w";
 export const suwonStreamsUrl = "https://www.youtube.com/@SuwonJeilCh/streams";
 
-export function findLatestSuwonStream(html: string): string | null {
-  const match = html.match(/(?:var\s+ytInitialData\s*=\s*|window\["ytInitialData"\]\s*=\s*)(\{[\s\S]*?\});\s*<\/script>/);
-  if (!match) return null;
+export function findSuwonStreamIds(html: string): string[] {
+  const data = readYouTubeJson(html, "ytInitialData");
+  if (!data) return [];
   try {
-    const data: unknown = JSON.parse(match[1]);
-    const visit = (node: unknown): string | null => {
-      if (!node || typeof node !== "object") return null;
+    const ids = new Set<string>();
+    const visit = (node: unknown): void => {
+      if (!node || typeof node !== "object") return;
       if (Array.isArray(node)) {
-        for (const child of node) {
-          const found = visit(child);
-          if (found) return found;
-        }
-        return null;
+        node.forEach(visit);
+        return;
       }
       const record = node as Record<string, unknown>;
       if (record.lockupViewModel && typeof record.lockupViewModel === "object") {
@@ -24,19 +23,21 @@ export function findLatestSuwonStream(html: string): string | null {
         if (typeof title === "string" && /새벽\s*(기도회|예배)/.test(title) &&
             typeof video.contentId === "string" && /^[\w-]{11}$/.test(video.contentId) &&
             (liveMarker || /(?:ago|streamed|전|실시간)/i.test(details)) && !/(?:upcoming|scheduled|예정)/i.test(details)) {
-          return `https://www.youtube.com/watch?v=${video.contentId}`;
+          ids.add(video.contentId);
         }
       }
-      for (const child of Object.values(record)) {
-        const found = visit(child);
-        if (found) return found;
-      }
-      return null;
+      Object.values(record).forEach(visit);
     };
-    return visit(data);
+    visit(data);
+    return [...ids];
   } catch {
-    return null;
+    return [];
   }
+}
+
+export function findLatestSuwonStream(html: string): string | null {
+  const [id] = findSuwonStreamIds(html);
+  return id ? `https://www.youtube.com/watch?v=${id}` : null;
 }
 
 export function findTodaySuwonWorship(xml: string, now = new Date()): string | null {
@@ -64,7 +65,8 @@ export function findTodaySuwonWorship(xml: string, now = new Date()): string | n
 
 export type SuwonWorship = { videoId: string; date: string | null; live: boolean };
 
-export const verifiedSuwonReplay: SuwonWorship = { videoId: "rx3AhCrltVM", date: "2026-11-20", live: false };
+export const verifiedSuwonReplay: SuwonWorship = { videoId: "RPCDnFNlM7Q", date: "2026-11-23", live: false };
+export const previousSuwonReplay: SuwonWorship = { videoId: "rx3AhCrltVM", date: "2026-11-20", live: false };
 
 export function suwonKoreaDate(now = new Date()): string {
   const parts = new Intl.DateTimeFormat("en-GB", {
@@ -83,35 +85,40 @@ function worshipDate(text: string): string | null {
   return Number.isFinite(timestamp) && new Date(timestamp).toISOString().slice(0, 10) === iso ? iso : null;
 }
 
-export function findDatedSuwonFeedWorship(xml: string, now = new Date()): SuwonWorship | null {
+export function findDatedSuwonFeedCandidates(xml: string, now = new Date()): SuwonWorship[] {
   const today = suwonKoreaDate(now);
-  let latest: SuwonWorship | null = null;
+  const candidates: SuwonWorship[] = [];
   for (const [entry] of xml.matchAll(/<entry\b[\s\S]*?<\/entry>/g)) {
     const title = entry.match(/<title>([\s\S]*?)<\/title>/)?.[1] ?? "";
     const description = entry.match(/<media:description>([\s\S]*?)<\/media:description>/)?.[1] ?? "";
     const videoId = entry.match(/<yt:videoId>([\w-]{11})<\/yt:videoId>/)?.[1];
     const date = worshipDate(title) ?? worshipDate(description);
     if (!/새벽\s*(기도회|예배)/.test(title) || !videoId || !date || date > today) continue;
-    if (!latest?.date || date > latest.date) latest = { videoId, date, live: false };
+    candidates.push({ videoId, date, live: false });
   }
-  return latest;
+  return candidates.sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
+}
+
+export function findDatedSuwonFeedWorship(xml: string, now = new Date()): SuwonWorship | null {
+  return findDatedSuwonFeedCandidates(xml, now)[0] ?? null;
 }
 
 export function parseSuwonWatchWorship(html: string, candidateId: string): SuwonWorship | null {
-  const match = html.match(/(?:var\s+ytInitialPlayerResponse\s*=\s*|window\["ytInitialPlayerResponse"\]\s*=\s*)(\{[\s\S]*?\});\s*<\/script>/);
-  if (!match) return null;
+  const payload = readYouTubeJson(html, "ytInitialPlayerResponse");
+  if (!payload) return null;
   try {
-    const data = JSON.parse(match[1]) as {
+    const data = payload as {
       playabilityStatus?: { status?: string; playableInEmbed?: boolean };
-      videoDetails?: { videoId?: string; channelId?: string; title?: string; shortDescription?: string; isLive?: boolean; isUpcoming?: boolean };
-      microformat?: { playerMicroformatRenderer?: { liveBroadcastDetails?: { isLiveNow?: boolean; startTimestamp?: string } } };
+      videoDetails?: { videoId?: string; channelId?: string; title?: string; shortDescription?: string; lengthSeconds?: string; isLive?: boolean; isUpcoming?: boolean };
+      microformat?: { playerMicroformatRenderer?: { liveBroadcastDetails?: { isLiveNow?: boolean; startTimestamp?: string; endTimestamp?: string } } };
     };
     const details = data.videoDetails;
     const broadcast = data.microformat?.playerMicroformatRenderer?.liveBroadcastDetails;
-    if (data.playabilityStatus?.status !== "OK" || data.playabilityStatus.playableInEmbed === false ||
+    if (data.playabilityStatus?.status !== "OK" || data.playabilityStatus.playableInEmbed !== true ||
         details?.videoId !== candidateId || details.channelId !== "UCpT3ZKDtCRX67Knkzl7Uc6w" ||
         !/새벽\s*(기도회|예배)/.test(details.title ?? "") || details.isUpcoming) return null;
-    const live = details.isLive === true || broadcast?.isLiveNow === true;
+    const live = !broadcast?.endTimestamp && (broadcast?.isLiveNow === true || (broadcast?.isLiveNow !== false && details.isLive === true));
+    if (!live && (!/^\d+$/.test(details.lengthSeconds ?? "") || Number(details.lengthSeconds) <= 0)) return null;
     const start = broadcast?.startTimestamp ? Date.parse(broadcast.startTimestamp) : NaN;
     const date = worshipDate(details.title ?? "") ?? worshipDate(details.shortDescription ?? "") ??
       (Number.isFinite(start) ? suwonKoreaDate(new Date(start)) : null);
@@ -128,6 +135,21 @@ export function chooseSuwonWorship(candidates: (SuwonWorship | null)[], now = ne
   return valid.find((item) => item.live && (!item.date || item.date === today)) ??
     valid.reduce<SuwonWorship | null>((latest, item) =>
       item.date && (!latest?.date || item.date > latest.date) ? item : latest, null);
+}
+
+/** RSS and listing entries are discovery hints, never final playback candidates. */
+export async function resolveSuwonPlayback(streams: string, feed: string, now: Date, fetchWatch = getYouTubeText): Promise<SuwonWorship | null> {
+  const streamIds = findSuwonStreamIds(streams).slice(0, 3);
+  const feedIds = findDatedSuwonFeedCandidates(feed, now).slice(0, 4).map(({ videoId }) => videoId);
+  const ids = [...new Set([...streamIds, ...feedIds])];
+  const verified = await Promise.all(ids.map(async (id) => {
+    try {
+      return parseSuwonWatchWorship(await fetchWatch(`https://www.youtube.com/watch?v=${id}`), id);
+    } catch {
+      return null;
+    }
+  }));
+  return chooseSuwonWorship(verified, now);
 }
 
 export function suwonWorshipTitle(worship: SuwonWorship, now = new Date(), fallback = false): string {
