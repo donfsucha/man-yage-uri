@@ -57,8 +57,17 @@ describe("dated Suwon worship fallback", () => {
     const live = {videoId: "ddddddddddd", date: null, live: true};
     expect(chooseSuwonWorship([verifiedSuwonReplay, today], november22)).toEqual(today);
     expect(suwonWorshipTitle(today, november22)).not.toContain("다시보기");
+    expect(suwonWorshipTitle(today, november22, true)).toContain("다시보기");
     expect(chooseSuwonWorship([today, live, verifiedSuwonReplay], november22)).toEqual(live);
     expect(suwonWorshipTitle(live, november22)).toContain("실시간");
+  });
+
+  it("discovers an explicitly live stream without a relative upload time", () => {
+    const live = {items: [{lockupViewModel: {
+      contentId: "rx3AhCrltVM", metadata: {lockupMetadataViewModel: {title: {content: "새벽기도회"}}},
+      contentImage: {badge: {style: "LIVE_NOW"}},
+    }}]};
+    expect(findLatestSuwonStream(`<script>var ytInitialData = ${JSON.stringify(live)};</script>`)).toBe("https://www.youtube.com/watch?v=rx3AhCrltVM");
   });
 
   it("checks the watch-page identity, date and broadcast state", () => {
