@@ -65,8 +65,8 @@ export function findTodaySuwonWorship(xml: string, now = new Date()): string | n
 
 export type SuwonWorship = { videoId: string; date: string | null; live: boolean };
 
-export const verifiedSuwonReplay: SuwonWorship = { videoId: "RPCDnFNlM7Q", date: "2026-11-23", live: false };
-export const previousSuwonReplay: SuwonWorship = { videoId: "rx3AhCrltVM", date: "2026-11-20", live: false };
+export const verifiedSuwonReplay: SuwonWorship = { videoId: "fiQpNKbegYw", date: "2026-11-24", live: false };
+export const previousSuwonReplay: SuwonWorship = { videoId: "RPCDnFNlM7Q", date: "2026-11-23", live: false };
 
 export function suwonKoreaDate(now = new Date()): string {
   const parts = new Intl.DateTimeFormat("en-GB", {
