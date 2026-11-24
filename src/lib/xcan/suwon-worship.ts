@@ -2,6 +2,7 @@ import { getYouTubeText, readYouTubeJson } from "./youtube-json";
 
 export const suwonFeedUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=UCpT3ZKDtCRX67Knkzl7Uc6w";
 export const suwonStreamsUrl = "https://www.youtube.com/@SuwonJeilCh/streams";
+const suwonLiveUrl = "https://www.youtube.com/@SuwonJeilCh/live";
 
 export function findSuwonStreamIds(html: string): string[] {
   const data = readYouTubeJson(html, "ytInitialData");
@@ -142,6 +143,17 @@ export async function resolveSuwonPlayback(streams: string, feed: string, now: D
   const streamIds = findSuwonStreamIds(streams).slice(0, 3);
   const feedIds = findDatedSuwonFeedCandidates(feed, now).slice(0, 4).map(({ videoId }) => videoId);
   const ids = [...new Set([...streamIds, ...feedIds])];
+  const dawnHour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Seoul", hour: "2-digit", hourCycle: "h23" }).format(now));
+  const active = dawnHour >= 5 && dawnHour < 7 ? (async () => {
+    try {
+      const html = await fetchWatch(suwonLiveUrl);
+      const payload = readYouTubeJson(html, "ytInitialPlayerResponse");
+      const videoId = (payload?.videoDetails as { videoId?: unknown } | undefined)?.videoId;
+      if (typeof videoId !== "string" || !/^[A-Za-z0-9_-]{11}$/.test(videoId)) return null;
+      const verified = parseSuwonWatchWorship(html, videoId);
+      return verified?.live && verified.date === suwonKoreaDate(now) ? verified : null;
+    } catch { return null; }
+  })() : Promise.resolve(null);
   const verified = await Promise.all(ids.map(async (id) => {
     try {
       return parseSuwonWatchWorship(await fetchWatch(`https://www.youtube.com/watch?v=${id}`), id);
@@ -149,7 +161,7 @@ export async function resolveSuwonPlayback(streams: string, feed: string, now: D
       return null;
     }
   }));
-  return chooseSuwonWorship(verified, now);
+  return chooseSuwonWorship([await active, ...verified], now);
 }
 
 export function suwonWorshipTitle(worship: SuwonWorship, now = new Date(), fallback = false): string {
