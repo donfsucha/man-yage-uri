@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getAdminAccess, libraryAuthHeaders, privateLibraryHeaders } from "@/lib/library-access";
 
 const IFWE_HOST = "ifwe.cnanfc.com";
 const ADMIN_REALM = "IfWe Admin";
@@ -52,6 +53,25 @@ function isValidAdminRequest(request: NextRequest) {
 }
 
 export function proxy(request: NextRequest) {
+  let pathname = request.nextUrl.pathname;
+  try {
+    pathname = decodeURIComponent(pathname);
+  } catch {
+    // Malformed paths cannot resolve to the library page.
+  }
+  if (pathname === "/library" || pathname.startsWith("/library/")) {
+    const access = getAdminAccess(request.headers.get("authorization"));
+    if (access !== "allowed") {
+      const needsSignIn = access === "unauthorized";
+      return new NextResponse(needsSignIn ? "Admin sign-in required." : "Admin access is unavailable.", {
+        headers: libraryAuthHeaders(needsSignIn),
+        status: needsSignIn ? 401 : 503,
+      });
+    }
+    return NextResponse.next({ headers: privateLibraryHeaders });
+  }
+
+
   if (request.nextUrl.pathname.startsWith("/admin")) {
     const authResponse = isValidAdminRequest(request);
 
