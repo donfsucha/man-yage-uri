@@ -27,8 +27,12 @@ export default async function SuwonWorshipPage() {
   const liveOrReplay = cached && ((cached.matched.live && !stale) ||
     (!cached.matched.live && cached.matched.date && isRecentReplay(cached.matched.date, today))) ? cached.matched : null;
   const seed = [verifiedSuwonReplay, previousSuwonReplay].find((item) => item.date && isRecentReplay(item.date, today)) ?? null;
-  const worship = chooseSuwonWorship([liveOrReplay, seed], now);
-  const fallback = stale || worship === seed;
+  // Manually verified completed broadcast; do not carry this override into another KST date.
+  const verifiedTodayReplay = today === "2026-11-25"
+    ? { videoId: "Wii9GKN-wDc", date: "2026-11-25", live: false }
+    : null;
+  const worship = chooseSuwonWorship([liveOrReplay, verifiedTodayReplay, seed], now);
+  const fallback = stale || worship === verifiedTodayReplay || worship === seed;
   if (worship) return (
     <>
       <script dangerouslySetInnerHTML={{ __html: "if (window.AndroidBot) window.xcanFullscreenClickBound = true;" }} />
