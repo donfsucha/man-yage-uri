@@ -1,9 +1,14 @@
 import Link from "next/link";
+import { headers } from "next/headers";
+import { notFound } from "next/navigation";
+import { getAdminAccess } from "@/lib/library-access";
 import { getStories } from "@/lib/story/persistence";
 
 export const dynamic = "force-dynamic";
 
 export default async function LibraryPage() {
+  // Defense in depth: never touch the private store if proxy coverage changes.
+  if (getAdminAccess((await headers()).get("authorization")) !== "allowed") notFound();
   const stories = await getStories();
 
   return (
