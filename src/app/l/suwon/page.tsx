@@ -1,5 +1,5 @@
 import {
-  chooseSuwonWorship, previousSuwonReplay, resolveSuwonPlayback,
+  chooseSuwonWorship, isSuwonDawnWindow, previousSuwonReplay, resolveSuwonPlayback,
   suwonFeedUrl, suwonKoreaDate, suwonStreamsUrl, suwonWorshipTitle, verifiedSuwonReplay,
 } from "@/lib/xcan/suwon-worship";
 import { getYouTubeText } from "@/lib/xcan/youtube-json";
@@ -9,34 +9,44 @@ import SuwonPlayer from "../../suwon/suwon-player";
 
 export const dynamic = "force-dynamic";
 
-const lookupSuwonWorship = unstable_cache(async () => {
-  const [streams, feed] = await Promise.all([getYouTubeText(suwonStreamsUrl), getYouTubeText(suwonFeedUrl)]);
-  const now = new Date();
-  const matched = await resolveSuwonPlayback(streams, feed, now);
+async function readSuwonPlayback(now: Date) {
+  const matched = await resolveSuwonPlayback(getYouTubeText(suwonStreamsUrl), getYouTubeText(suwonFeedUrl), now);
   if (!matched || (!matched.live && (!matched.date || !isRecentReplay(matched.date, suwonKoreaDate(now))))) {
     throw new Error("No eligible Suwon dawn source found");
   }
   return { matched, checkedAt: now.getTime() };
-}, ["xcan-suwon-dawn-lookup-v2"], { revalidate: playbackRevalidationSeconds });
+}
+
+const lookupSuwonWorship = unstable_cache(
+  () => readSuwonPlayback(new Date()),
+  ["xcan-suwon-dawn-lookup-v3"], { revalidate: playbackRevalidationSeconds },
+);
 
 export default async function SuwonWorshipPage() {
   const now = new Date();
   const today = suwonKoreaDate(now);
-  const cached = await lookupSuwonWorship().catch(() => null);
-  const stale = !cached || needsReplayLabel(cached.checkedAt, now.getTime());
-  const liveOrReplay = cached && ((cached.matched.live && !stale) ||
-    (!cached.matched.live && cached.matched.date && isRecentReplay(cached.matched.date, today))) ? cached.matched : null;
+  // Do not let stale-while-revalidate serve yesterday at the live/replay transition.
+  const dawn = isSuwonDawnWindow(now);
+  const checked = await (dawn ? readSuwonPlayback(now) : lookupSuwonWorship()).catch(() => null);
+  const liveOrReplay = checked && (
+    (checked.matched.live && checked.matched.date === today && !needsReplayLabel(checked.checkedAt, Date.now())) ||
+    (!checked.matched.live && checked.matched.date && isRecentReplay(checked.matched.date, today))
+  ) ? checked.matched : null;
+  if (dawn && liveOrReplay?.date !== today) {
+    console.warn("[xcan:suwon] fresh lookup missed today's service", {
+      today, selectedId: liveOrReplay?.videoId ?? null, selectedDate: liveOrReplay?.date ?? null,
+    });
+  }
   const seed = [verifiedSuwonReplay, previousSuwonReplay].find((item) => item.date && isRecentReplay(item.date, today)) ?? null;
   // Manually verified current-day broadcast; automatic live detection still takes priority.
   const verifiedTodayReplay = today === "2026-11-26"
     ? { videoId: "Fp6_Ck4-IcQ", date: "2026-11-26", live: false }
     : null;
   const worship = chooseSuwonWorship([liveOrReplay, verifiedTodayReplay, seed], now);
-  const fallback = stale || worship === verifiedTodayReplay || worship === seed;
   if (worship) return (
     <>
       <script dangerouslySetInnerHTML={{ __html: "if (window.AndroidBot) window.xcanFullscreenClickBound = true;" }} />
-      <SuwonPlayer videoId={worship.videoId} title={suwonWorshipTitle(worship, now, worship === verifiedTodayReplay ? false : fallback)} />
+      <SuwonPlayer videoId={worship.videoId} title={suwonWorshipTitle(worship, now, worship !== verifiedTodayReplay)} />
     </>
   );
 
