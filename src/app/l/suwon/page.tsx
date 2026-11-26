@@ -39,8 +39,8 @@ export default async function SuwonWorshipPage() {
   }
   const seed = [verifiedSuwonReplay, previousSuwonReplay].find((item) => item.date && isRecentReplay(item.date, today)) ?? null;
   // Manually verified current-day broadcast; automatic live detection still takes priority.
-  const verifiedTodayReplay = today === "2026-11-26"
-    ? { videoId: "Fp6_Ck4-IcQ", date: "2026-11-26", live: false }
+  const verifiedTodayReplay = today === "2026-11-27"
+    ? { videoId: "1IP0ck0l4lk", date: "2026-11-27", live: false }
     : null;
   const worship = chooseSuwonWorship([liveOrReplay, verifiedTodayReplay, seed], now);
   if (worship) return (
